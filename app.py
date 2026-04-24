@@ -8,7 +8,7 @@ import math
 
 app = Flask(__name__)
 
-# Mapping: wie viele A4-Seiten pro Format
+# Anzahl A4-Seiten pro Format
 SHEET_MAP = {
     "A4": 1,
     "A3": 4,
@@ -20,10 +20,6 @@ SHEET_MAP = {
 @app.route("/")
 def index():
     return render_template("index.html")
-
-
-def mm_to_pt(mm):
-    return mm * 72 / 25.4
 
 
 def compute_grid(num_sheets, image_ratio):
@@ -58,13 +54,18 @@ def create_pdf():
 
     sheets = SHEET_MAP[fmt]
 
+    # Bild laden
     img = Image.open(file.stream)
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
 
+    # 🔥 WICHTIG: Bild verkleinern → verhindert Timeout
+    max_size = 2000
+    img.thumbnail((max_size, max_size))
+
     cols, rows = compute_grid(sheets, img.width / img.height)
 
-    # A4 in Pixel (ca.)
+    # A4 Größe
     dpi = 150
     page_w, page_h = A4
     page_w_px = int(page_w / 72 * dpi)
