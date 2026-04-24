@@ -15,6 +15,8 @@ SHEET_MAP = {
     "A1": 16,
 }
 
+BRAND_TEXT = "Erstellt mit dem Bild-zu-Poster-Service auf Katicas-Galerie.de"
+
 
 @app.route("/")
 def index():
@@ -33,19 +35,15 @@ def draw_cut_marks(pdf, page_w, page_h):
 
     pdf.setLineWidth(0.5)
 
-    # unten links
     pdf.line(offset, offset, offset + mark, offset)
     pdf.line(offset, offset, offset, offset + mark)
 
-    # unten rechts
     pdf.line(page_w - offset, offset, page_w - offset - mark, offset)
     pdf.line(page_w - offset, offset, page_w - offset, offset + mark)
 
-    # oben links
     pdf.line(offset, page_h - offset, offset + mark, page_h - offset)
     pdf.line(offset, page_h - offset, offset, page_h - offset - mark)
 
-    # oben rechts
     pdf.line(page_w - offset, page_h - offset, page_w - offset - mark, page_h - offset)
     pdf.line(page_w - offset, page_h - offset, page_w - offset, page_h - offset - mark)
 
@@ -59,6 +57,11 @@ def draw_page_label(pdf, fmt, page_number, total_pages, row, col, rows, cols, pa
     )
 
     pdf.drawCentredString(page_w / 2, 12, text)
+
+
+def draw_branding(pdf, page_w):
+    pdf.setFont("Helvetica", 7)
+    pdf.drawString(20, 12, BRAND_TEXT)
 
 
 def draw_assembly_hints(pdf, row, col, rows, cols, page_w, page_h):
@@ -100,6 +103,7 @@ def draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h):
             y = start_y + (rows - 1 - r) * cell_h
 
             pdf.rect(x, y, cell_w, cell_h)
+
             pdf.setFont("Helvetica-Bold", 16)
             pdf.drawCentredString(x + cell_w / 2, y + cell_h / 2 - 5, str(page_no))
 
@@ -112,14 +116,19 @@ def draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h):
 
             page_no += 1
 
+    # Druckhinweise
     info_y = 130
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(70, info_y, "Druckhinweis:")
 
     pdf.setFont("Helvetica", 10)
     pdf.drawString(70, info_y - 22, "Bitte beim Drucken „Tatsächliche Größe“ oder „100 %“ auswählen.")
-    pdf.drawString(70, info_y - 40, "Nicht „An Seite anpassen“ verwenden, damit die Seiten korrekt zusammenpassen.")
-    pdf.drawString(70, info_y - 58, "Die Seiten anhand der Nummerierung von links nach rechts und oben nach unten zusammenkleben.")
+    pdf.drawString(70, info_y - 40, "Nicht „An Seite anpassen“ verwenden.")
+    pdf.drawString(70, info_y - 58, "Seiten von links nach rechts und oben nach unten zusammenkleben.")
+
+    # 🔥 Branding auf Übersichtsseite
+    pdf.setFont("Helvetica", 9)
+    pdf.drawCentredString(page_w / 2, 40, BRAND_TEXT)
 
     pdf.showPage()
 
@@ -141,7 +150,6 @@ def create_pdf():
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
 
-    # Wichtig für Render Free: Bild verkleinern, damit kein Timeout entsteht
     img.thumbnail((1500, 1500))
 
     cols, rows = compute_grid(total_pages)
@@ -155,7 +163,7 @@ def create_pdf():
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
 
-    # Neue Übersichtsseite
+    # Übersichtsseite
     draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h)
 
     page_number = 1
@@ -168,7 +176,6 @@ def create_pdf():
             right = left + tile_w
             bottom = top + tile_h
 
-            # letzte Spalte/Reihe exakt bis zum Bildrand
             if c_idx == cols - 1:
                 right = img_w
             if r == rows - 1:
@@ -188,6 +195,9 @@ def create_pdf():
             draw_page_label(pdf, fmt, page_number, total_pages, r, c_idx, rows, cols, page_w)
             draw_assembly_hints(pdf, r, c_idx, rows, cols, page_w, page_h)
 
+            # 🔥 Branding auf jeder Seite
+            draw_branding(pdf, page_w)
+
             pdf.showPage()
             page_number += 1
 
@@ -197,7 +207,7 @@ def create_pdf():
     return send_file(
         buffer,
         as_attachment=True,
-        download_name=f"poster_{fmt}_mit_aufbauhilfe.pdf",
+        download_name=f"poster_{fmt}_katicas_galerie.pdf",
         mimetype="application/pdf"
     )
 
