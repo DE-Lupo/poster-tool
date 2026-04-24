@@ -7,11 +7,9 @@
 <style>
 body {
     font-family: Arial, sans-serif;
-    background: #1679D6; /* 🔥 BLAUER HINTERGRUND */
+    background: #1679D6;
     text-align: center;
     margin: 0;
-
-    /* 🔥 sorgt für perfekte Zentrierung */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -21,6 +19,7 @@ body {
 .container {
     max-width: 520px;
     width: 100%;
+    min-height: 620px;
     background: white;
     padding: 40px;
     border-radius: 20px;
@@ -31,6 +30,30 @@ h1 { margin-bottom: 10px; }
 p { color: #555; }
 
 input[type="file"] { margin-top: 15px; }
+
+#previewBox {
+    margin: 20px auto 0;
+    width: 100%;
+    height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    background: #fafafa;
+    overflow: hidden;
+}
+
+#placeholder {
+    color: #999;
+    font-size: 14px;
+}
+
+#preview {
+    max-width: 100%;
+    max-height: 100%;
+    display: none;
+}
 
 select {
     margin-top: 18px;
@@ -54,15 +77,6 @@ button:hover { background: #5b21b6; }
 button:disabled {
     background: #999;
     cursor: not-allowed;
-}
-
-#preview {
-    display: none;
-    margin: 20px auto 0;
-    max-width: 100%;
-    max-height: 260px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
 }
 
 #pageInfo {
@@ -122,7 +136,10 @@ button:disabled {
     <form id="form" action="/create-pdf" method="post" enctype="multipart/form-data" target="downloadFrame">
         <input id="imageInput" type="file" name="image" accept="image/*" required>
 
-        <img id="preview" alt="Bildvorschau">
+        <div id="previewBox">
+            <span id="placeholder">Noch kein Bild ausgewählt</span>
+            <img id="preview" alt="Bildvorschau">
+        </div>
         
         <br>
 
@@ -160,6 +177,7 @@ button:disabled {
 <script>
 const imageInput = document.getElementById("imageInput");
 const preview = document.getElementById("preview");
+const placeholder = document.getElementById("placeholder");
 const form = document.getElementById("form");
 const loadingOverlay = document.getElementById("loadingOverlay");
 const submitButton = document.getElementById("submitButton");
@@ -175,6 +193,7 @@ imageInput.addEventListener("change", function () {
 
     if (!file) {
         preview.style.display = "none";
+        placeholder.style.display = "block";
         return;
     }
 
@@ -183,6 +202,7 @@ imageInput.addEventListener("change", function () {
     reader.onload = function (event) {
         preview.src = event.target.result;
         preview.style.display = "block";
+        placeholder.style.display = "none";
     };
 
     reader.readAsDataURL(file);
