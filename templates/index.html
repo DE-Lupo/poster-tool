@@ -21,17 +21,10 @@ body {
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
 }
 
-h1 {
-    margin-bottom: 10px;
-}
+h1 { margin-bottom: 10px; }
+p { color: #555; }
 
-p {
-    color: #555;
-}
-
-input[type="file"] {
-    margin-top: 15px;
-}
+input[type="file"] { margin-top: 15px; }
 
 select {
     margin-top: 18px;
@@ -50,9 +43,7 @@ button {
     cursor: pointer;
 }
 
-button:hover {
-    background: #5b21b6;
-}
+button:hover { background: #5b21b6; }
 
 #preview {
     display: none;
@@ -63,17 +54,44 @@ button:hover {
     border: 1px solid #ddd;
 }
 
-#loading {
-    display: none;
-    margin-top: 20px;
-    font-weight: bold;
-    color: #6d28d9;
-}
-
 #pageInfo {
     margin-top: 15px;
     color: #555;
     font-weight: bold;
+}
+
+/* Ladeoverlay */
+#loadingOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+
+.loaderBox {
+    background: white;
+    padding: 35px;
+    border-radius: 20px;
+    width: 280px;
+    text-align: center;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+}
+
+.spinner {
+    width: 52px;
+    height: 52px;
+    border: 6px solid #ddd;
+    border-top: 6px solid #6d28d9;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 </style>
 </head>
@@ -85,7 +103,6 @@ button:hover {
     <p>Lade ein Bild hoch und erstelle daraus eine druckbare PDF.</p>
 
     <form id="form" action="/create-pdf" method="post" enctype="multipart/form-data">
-        
         <input id="imageInput" type="file" name="image" accept="image/*" required>
 
         <img id="preview" alt="Bildvorschau">
@@ -105,11 +122,15 @@ button:hover {
 
         <br>
 
-        <button type="submit">PDF erstellen</button>
+        <button id="submitButton" type="submit">PDF erstellen</button>
     </form>
+</div>
 
-    <div id="loading">
-        PDF wird erstellt...
+<div id="loadingOverlay">
+    <div class="loaderBox">
+        <div class="spinner"></div>
+        <h3>Poster wird erstellt…</h3>
+        <p>Bitte kurz warten. Deine PDF wird vorbereitet.</p>
     </div>
 </div>
 
@@ -117,11 +138,11 @@ button:hover {
 const imageInput = document.getElementById("imageInput");
 const preview = document.getElementById("preview");
 const form = document.getElementById("form");
-const loading = document.getElementById("loading");
+const loadingOverlay = document.getElementById("loadingOverlay");
+const submitButton = document.getElementById("submitButton");
 const formatSelect = document.getElementById("formatSelect");
 const pageInfo = document.getElementById("pageInfo");
 
-// Bildvorschau
 imageInput.addEventListener("change", function () {
     const file = this.files[0];
 
@@ -140,16 +161,16 @@ imageInput.addEventListener("change", function () {
     reader.readAsDataURL(file);
 });
 
-// Seiteninfo ändern
 formatSelect.addEventListener("change", function () {
     const pages = this.options[this.selectedIndex].dataset.pages;
     const word = pages === "1" ? "A4-Seite" : "A4-Seiten";
     pageInfo.innerText = "Dein Poster wird aus " + pages + " " + word + " bestehen.";
 });
 
-// Ladeanzeige
 form.addEventListener("submit", function () {
-    loading.style.display = "block";
+    loadingOverlay.style.display = "flex";
+    submitButton.disabled = true;
+    submitButton.innerText = "PDF wird erstellt...";
 });
 </script>
 
