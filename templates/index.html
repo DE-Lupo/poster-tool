@@ -69,6 +69,12 @@ button:hover {
     font-weight: bold;
     color: #6d28d9;
 }
+
+#pageInfo {
+    margin-top: 15px;
+    color: #555;
+    font-weight: bold;
+}
 </style>
 </head>
 
@@ -86,12 +92,16 @@ button:hover {
         
         <br>
 
-        <select name="format">
-            <option value="A4">A4 (1 Seite)</option>
-            <option value="A3">A3 (4 Seiten)</option>
-            <option value="A2">A2 (8 Seiten)</option>
-            <option value="A1">A1 (16 Seiten)</option>
+        <select id="formatSelect" name="format">
+            <option value="A4" data-pages="1">A4 (1 Seite)</option>
+            <option value="A3" data-pages="4">A3 (4 Seiten)</option>
+            <option value="A2" data-pages="8">A2 (8 Seiten)</option>
+            <option value="A1" data-pages="16">A1 (16 Seiten)</option>
         </select>
+
+        <div id="pageInfo">
+            Dein Poster wird aus 1 A4-Seite bestehen.
+        </div>
 
         <br>
 
@@ -108,7 +118,10 @@ const imageInput = document.getElementById("imageInput");
 const preview = document.getElementById("preview");
 const form = document.getElementById("form");
 const loading = document.getElementById("loading");
+const formatSelect = document.getElementById("formatSelect");
+const pageInfo = document.getElementById("pageInfo");
 
+// Bildvorschau
 imageInput.addEventListener("change", function () {
     const file = this.files[0];
 
@@ -127,6 +140,14 @@ imageInput.addEventListener("change", function () {
     reader.readAsDataURL(file);
 });
 
+// Seiteninfo ändern
+formatSelect.addEventListener("change", function () {
+    const pages = this.options[this.selectedIndex].dataset.pages;
+    const word = pages === "1" ? "A4-Seite" : "A4-Seiten";
+    pageInfo.innerText = "Dein Poster wird aus " + pages + " " + word + " bestehen.";
+});
+
+// Ladeanzeige
 form.addEventListener("submit", function () {
     loading.style.display = "block";
 });
