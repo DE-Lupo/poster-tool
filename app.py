@@ -27,6 +27,103 @@ def compute_grid(n):
     return cols, rows
 
 
+def draw_cut_marks(pdf, page_w, page_h):
+    mark = 18
+    offset = 18
+
+    pdf.setLineWidth(0.5)
+
+    # unten links
+    pdf.line(offset, offset, offset + mark, offset)
+    pdf.line(offset, offset, offset, offset + mark)
+
+    # unten rechts
+    pdf.line(page_w - offset, offset, page_w - offset - mark, offset)
+    pdf.line(page_w - offset, offset, page_w - offset, offset + mark)
+
+    # oben links
+    pdf.line(offset, page_h - offset, offset + mark, page_h - offset)
+    pdf.line(offset, page_h - offset, offset, page_h - offset - mark)
+
+    # oben rechts
+    pdf.line(page_w - offset, page_h - offset, page_w - offset - mark, page_h - offset)
+    pdf.line(page_w - offset, page_h - offset, page_w - offset, page_h - offset - mark)
+
+
+def draw_page_label(pdf, fmt, page_number, total_pages, row, col, rows, cols, page_w):
+    pdf.setFont("Helvetica", 8)
+
+    text = (
+        f"{fmt} | Seite {page_number} von {total_pages} | "
+        f"Reihe {row + 1}/{rows}, Spalte {col + 1}/{cols}"
+    )
+
+    pdf.drawCentredString(page_w / 2, 12, text)
+
+
+def draw_assembly_hints(pdf, row, col, rows, cols, page_w, page_h):
+    pdf.setFont("Helvetica", 7)
+
+    if col < cols - 1:
+        pdf.drawRightString(page_w - 24, page_h / 2, "rechts an nächste Seite kleben")
+
+    if row < rows - 1:
+        pdf.drawCentredString(page_w / 2, 24, "unten an nächste Reihe kleben")
+
+
+def draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h):
+    pdf.setFont("Helvetica-Bold", 20)
+    pdf.drawCentredString(page_w / 2, page_h - 70, "Poster-Zusammenbau")
+
+    pdf.setFont("Helvetica", 12)
+    pdf.drawCentredString(
+        page_w / 2,
+        page_h - 100,
+        f"Format: {fmt} | {total_pages} A4-Seiten | {rows} Reihen x {cols} Spalten"
+    )
+
+    grid_w = page_w * 0.65
+    grid_h = page_h * 0.42
+
+    cell_w = grid_w / cols
+    cell_h = grid_h / rows
+
+    start_x = (page_w - grid_w) / 2
+    start_y = page_h - 160 - grid_h
+
+    pdf.setLineWidth(1)
+
+    page_no = 1
+    for r in range(rows):
+        for c in range(cols):
+            x = start_x + c * cell_w
+            y = start_y + (rows - 1 - r) * cell_h
+
+            pdf.rect(x, y, cell_w, cell_h)
+            pdf.setFont("Helvetica-Bold", 16)
+            pdf.drawCentredString(x + cell_w / 2, y + cell_h / 2 - 5, str(page_no))
+
+            pdf.setFont("Helvetica", 7)
+            pdf.drawCentredString(
+                x + cell_w / 2,
+                y + 8,
+                f"R{r + 1} / S{c + 1}"
+            )
+
+            page_no += 1
+
+    info_y = 130
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(70, info_y, "Druckhinweis:")
+
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(70, info_y - 22, "Bitte beim Drucken „Tatsächliche Größe“ oder „100 %“ auswählen.")
+    pdf.drawString(70, info_y - 40, "Nicht „An Seite anpassen“ verwenden, damit die Seiten korrekt zusammenpassen.")
+    pdf.drawString(70, info_y - 58, "Die Seiten anhand der Nummerierung von links nach rechts und oben nach unten zusammenkleben.")
+
+    pdf.showPage()
+
+
 @app.route("/create-pdf", methods=["POST"])
 def create_pdf():
     if "image" not in request.files:
@@ -38,17 +135,16 @@ def create_pdf():
     if fmt not in SHEET_MAP:
         return "Format ungültig", 400
 
-    sheets = SHEET_MAP[fmt]
+    total_pages = SHEET_MAP[fmt]
 
-    # Bild laden
     img = Image.open(file.stream)
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
 
-    # 🔥 WICHTIG: stark verkleinern für Render
+    # Wichtig für Render Free: Bild verkleinern, damit kein Timeout entsteht
     img.thumbnail((1500, 1500))
 
-    cols, rows = compute_grid(sheets)
+    cols, rows = compute_grid(total_pages)
 
     img_w, img_h = img.size
     tile_w = img_w // cols
@@ -57,19 +153,30 @@ def create_pdf():
     page_w, page_h = A4
 
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+
+    # Neue Übersichtsseite
+    draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h)
+
+    page_number = 1
 
     for r in range(rows):
         for c_idx in range(cols):
-
             left = c_idx * tile_w
             top = r * tile_h
+
             right = left + tile_w
             bottom = top + tile_h
 
+            # letzte Spalte/Reihe exakt bis zum Bildrand
+            if c_idx == cols - 1:
+                right = img_w
+            if r == rows - 1:
+                bottom = img_h
+
             tile = img.crop((left, top, right, bottom))
 
-            c.drawImage(
+            pdf.drawImage(
                 ImageReader(tile),
                 0,
                 0,
@@ -77,15 +184,20 @@ def create_pdf():
                 height=page_h
             )
 
-            c.showPage()
+            draw_cut_marks(pdf, page_w, page_h)
+            draw_page_label(pdf, fmt, page_number, total_pages, r, c_idx, rows, cols, page_w)
+            draw_assembly_hints(pdf, r, c_idx, rows, cols, page_w, page_h)
 
-    c.save()
+            pdf.showPage()
+            page_number += 1
+
+    pdf.save()
     buffer.seek(0)
 
     return send_file(
         buffer,
         as_attachment=True,
-        download_name=f"poster_{fmt}.pdf",
+        download_name=f"poster_{fmt}_mit_aufbauhilfe.pdf",
         mimetype="application/pdf"
     )
 
