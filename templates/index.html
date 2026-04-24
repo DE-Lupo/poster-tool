@@ -60,7 +60,7 @@ button:hover { background: #5b21b6; }
     font-weight: bold;
 }
 
-/* Ladeoverlay */
+/* Overlay */
 #loadingOverlay {
     display: none;
     position: fixed;
@@ -130,7 +130,7 @@ button:hover { background: #5b21b6; }
     <div class="loaderBox">
         <div class="spinner"></div>
         <h3>Poster wird erstellt…</h3>
-        <p>Bitte kurz warten. Deine PDF wird vorbereitet.</p>
+        <p>Bitte kurz warten.</p>
     </div>
 </div>
 
@@ -143,6 +143,7 @@ const submitButton = document.getElementById("submitButton");
 const formatSelect = document.getElementById("formatSelect");
 const pageInfo = document.getElementById("pageInfo");
 
+// Vorschau
 imageInput.addEventListener("change", function () {
     const file = this.files[0];
 
@@ -161,16 +162,24 @@ imageInput.addEventListener("change", function () {
     reader.readAsDataURL(file);
 });
 
+// Seitenanzeige
 formatSelect.addEventListener("change", function () {
     const pages = this.options[this.selectedIndex].dataset.pages;
     const word = pages === "1" ? "A4-Seite" : "A4-Seiten";
     pageInfo.innerText = "Dein Poster wird aus " + pages + " " + word + " bestehen.";
 });
 
+// Ladeanzeige + automatisches Ausblenden
 form.addEventListener("submit", function () {
     loadingOverlay.style.display = "flex";
     submitButton.disabled = true;
     submitButton.innerText = "PDF wird erstellt...";
+
+    setTimeout(function () {
+        loadingOverlay.style.display = "none";
+        submitButton.disabled = false;
+        submitButton.innerText = "PDF erstellen";
+    }, 8000);
 });
 </script>
 
