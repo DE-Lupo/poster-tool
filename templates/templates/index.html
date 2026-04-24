@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Poster Generator</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #loading {
+            display: none;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Poster Generator</h1>
+
+<form action="/create-pdf" method="POST" enctype="multipart/form-data">
+    <input type="file" name="image" required><br><br>
+    <button type="submit">PDF erstellen</button>
+</form>
+
+<div id="loading">PDF wird erstellt...</div>
+
+<script>
+document.querySelector("form").addEventListener("submit", function() {
+    document.getElementById("loading").style.display = "block";
+});
+</script>
+
+</body>
+</html>
