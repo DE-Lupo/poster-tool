@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<!-- saved from url=(0049)file:///C:/Users/juerg/Downloads/index%20(2).html -->
-<html lang="de"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
     <title>Poster Generator</title>
+
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            margin: 50px;
+            margin-top: 50px;
         }
 
-        .box {
+        .container {
             max-width: 500px;
             margin: 0 auto;
             padding: 30px;
@@ -18,18 +19,23 @@
             border-radius: 16px;
         }
 
-        input, button {
+        input {
             margin-top: 15px;
         }
 
         button {
+            margin-top: 20px;
             padding: 12px 20px;
+            font-size: 16px;
             border: none;
             border-radius: 8px;
             background: #6d28d9;
             color: white;
             cursor: pointer;
-            font-size: 16px;
+        }
+
+        button:hover {
+            background: #5b21b6;
         }
 
         #loading {
@@ -41,12 +47,12 @@
 </head>
 <body>
 
-<div class="box">
+<div class="container">
     <h1>Poster Generator</h1>
-    <p>Lade ein Bild hoch und erstelle daraus eine PDF.</p>
+    <p>Lade dein Bild hoch und erstelle eine PDF.</p>
 
-    <form id="posterForm" action="file:///C:/create-pdf" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*" required="">
+    <form action="/create-pdf" method="post" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*" required>
         <br>
         <button type="submit">PDF erstellen</button>
     </form>
@@ -56,14 +62,5 @@
     </div>
 </div>
 
-<script>
-    const form = document.getElementById("posterForm");
-    const loading = document.getElementById("loading");
-
-    form.addEventListener("submit", function () {
-        loading.style.display = "block";
-    });
-</script>
-
-
-</body></html>
+</body>
+</html>
