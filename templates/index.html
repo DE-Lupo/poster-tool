@@ -45,6 +45,11 @@ button {
 
 button:hover { background: #5b21b6; }
 
+button:disabled {
+    background: #999;
+    cursor: not-allowed;
+}
+
 #preview {
     display: none;
     margin: 20px auto 0;
@@ -60,7 +65,13 @@ button:hover { background: #5b21b6; }
     font-weight: bold;
 }
 
-/* Overlay */
+#doneMessage {
+    display: none;
+    margin-top: 18px;
+    color: #15803d;
+    font-weight: bold;
+}
+
 #loadingOverlay {
     display: none;
     position: fixed;
@@ -102,7 +113,7 @@ button:hover { background: #5b21b6; }
     <h1>Bild zu Poster</h1>
     <p>Lade ein Bild hoch und erstelle daraus eine druckbare PDF.</p>
 
-    <form id="form" action="/create-pdf" method="post" enctype="multipart/form-data">
+    <form id="form" action="/create-pdf" method="post" enctype="multipart/form-data" target="downloadFrame">
         <input id="imageInput" type="file" name="image" accept="image/*" required>
 
         <img id="preview" alt="Bildvorschau">
@@ -124,7 +135,13 @@ button:hover { background: #5b21b6; }
 
         <button id="submitButton" type="submit">PDF erstellen</button>
     </form>
+
+    <div id="doneMessage">
+        PDF wurde erstellt. Der Download sollte gestartet sein.
+    </div>
 </div>
+
+<iframe name="downloadFrame" id="downloadFrame" style="display:none;"></iframe>
 
 <div id="loadingOverlay">
     <div class="loaderBox">
@@ -142,8 +159,11 @@ const loadingOverlay = document.getElementById("loadingOverlay");
 const submitButton = document.getElementById("submitButton");
 const formatSelect = document.getElementById("formatSelect");
 const pageInfo = document.getElementById("pageInfo");
+const doneMessage = document.getElementById("doneMessage");
+const downloadFrame = document.getElementById("downloadFrame");
 
-// Vorschau
+let submitted = false;
+
 imageInput.addEventListener("change", function () {
     const file = this.files[0];
 
@@ -162,25 +182,40 @@ imageInput.addEventListener("change", function () {
     reader.readAsDataURL(file);
 });
 
-// Seitenanzeige
 formatSelect.addEventListener("change", function () {
     const pages = this.options[this.selectedIndex].dataset.pages;
     const word = pages === "1" ? "A4-Seite" : "A4-Seiten";
     pageInfo.innerText = "Dein Poster wird aus " + pages + " " + word + " bestehen.";
 });
 
-// Ladeanzeige + automatisches Ausblenden
 form.addEventListener("submit", function () {
+    submitted = true;
+    doneMessage.style.display = "none";
     loadingOverlay.style.display = "flex";
     submitButton.disabled = true;
     submitButton.innerText = "PDF wird erstellt...";
+});
 
-    setTimeout(function () {
+downloadFrame.addEventListener("load", function () {
+    if (!submitted) return;
+
+    loadingOverlay.style.display = "none";
+    submitButton.disabled = false;
+    submitButton.innerText = "PDF erstellen";
+    doneMessage.style.display = "block";
+    submitted = false;
+});
+
+// Sicherheit: Overlay spätestens nach 12 Sekunden entfernen
+setInterval(function () {
+    if (submitted) {
         loadingOverlay.style.display = "none";
         submitButton.disabled = false;
         submitButton.innerText = "PDF erstellen";
-    }, 8000);
-});
+        doneMessage.style.display = "block";
+        submitted = false;
+    }
+}, 12000);
 </script>
 
 </body>
