@@ -1,66 +1,23 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <title>Poster Generator</title>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
-        }
-
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 30px;
-            border: 1px solid #ddd;
-            border-radius: 16px;
-        }
-
-        input {
-            margin-top: 15px;
-        }
-
-        button {
-            margin-top: 20px;
-            padding: 12px 20px;
-            font-size: 16px;
-            border: none;
-            border-radius: 8px;
-            background: #6d28d9;
-            color: white;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #5b21b6;
-        }
-
-        #loading {
-            display: none;
-            margin-top: 20px;
-            font-weight: bold;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Poster Generator</title>
 </head>
-<body>
 
-<div class="container">
-    <h1>Poster Generator</h1>
-    <p>Lade dein Bild hoch und erstelle eine PDF.</p>
+<body style="text-align:center; margin-top:50px; font-family:Arial;">
 
-    <form action="/create-pdf" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*" required>
-        <br>
-        <button type="submit">PDF erstellen</button>
-    </form>
+<h1>Poster Generator</h1>
 
-    <div id="loading">
-        PDF wird erstellt...
-    </div>
-</div>
+<form action="/create-pdf" method="post" enctype="multipart/form-data">
+    
+    <input type="file" name="image" required>
+    
+    <br><br>
+    
+    <input type="submit" value="PDF erstellen">
+
+</form>
 
 </body>
 </html>
