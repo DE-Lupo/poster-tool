@@ -2,32 +2,96 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Poster Generator - Katicas Galerie Ludwigshafen</title>
+<title>Bild zu Poster</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    text-align: center;
+    margin: 0;
+}
+
+.container {
+    max-width: 500px;
+    margin: 80px auto;
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+input[type="file"] {
+    margin-top: 15px;
+}
+
+select {
+    margin-top: 15px;
+    padding: 10px;
+    font-size: 16px;
+}
+
+button {
+    margin-top: 25px;
+    padding: 15px 25px;
+    font-size: 16px;
+    border: none;
+    border-radius: 10px;
+    background: #6d28d9;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #5b21b6;
+}
+
+#loading {
+    display: none;
+    margin-top: 20px;
+    font-weight: bold;
+    color: #6d28d9;
+}
+</style>
+
 </head>
+<body>
 
-<body style="text-align:center; margin-top:50px; font-family:Arial;">
+<div class="container">
+    <h1>Bild zu Poster</h1>
 
-<h1>Poster Generator</h1>
+    <form id="form" action="/create-pdf" method="post" enctype="multipart/form-data">
+        
+        <input type="file" name="image" required>
+        
+        <br>
 
-<form action="/create-pdf" method="post" enctype="multipart/form-data">
-    
-    <input type="file" name="image" required>
-    
-    <br><br>
+        <select name="format">
+            <option value="A4">A4 (1 Seite)</option>
+            <option value="A3">A3 (4 Seiten)</option>
+            <option value="A2">A2 (8 Seiten)</option>
+            <option value="A1">A1 (16 Seiten)</option>
+        </select>
 
-    <label>Format wählen:</label><br>
-    <select name="format">
-        <option value="A4">A4 (1 Seite)</option>
-        <option value="A3">A3 (4 Seiten)</option>
-        <option value="A2">A2 (8 Seiten)</option>
-        <option value="A1">A1 (16 Seiten)</option>
-    </select>
+        <br>
 
-    <br><br>
-    
-    <input type="submit" value="PDF erstellen">
+        <button type="submit">PDF erstellen</button>
+    </form>
 
-</form>
+    <div id="loading">
+        PDF wird erstellt...
+    </div>
+</div>
+
+<script>
+document.getElementById("form").addEventListener("submit", function() {
+    document.getElementById("loading").style.display = "block";
+});
+</script>
 
 </body>
 </html>
