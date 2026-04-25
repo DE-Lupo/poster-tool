@@ -86,13 +86,6 @@ button:disabled {
     font-weight: bold;
 }
 
-#consentMessage {
-    display: none;
-    margin-top: 18px;
-    color: #b45309;
-    font-weight: bold;
-}
-
 #doneMessage {
     display: none;
     margin-top: 18px;
@@ -166,10 +159,6 @@ button:disabled {
         <button id="submitButton" type="submit">PDF erstellen</button>
     </form>
 
-    <div id="consentMessage">
-        Bitte akzeptieren Sie die funktionalen Services, um dieses Tool zu nutzen.
-    </div>
-
     <div id="doneMessage">
         PDF wurde erstellt. Der Download sollte gestartet sein.
     </div>
@@ -195,47 +184,12 @@ const submitButton = document.getElementById("submitButton");
 const formatSelect = document.getElementById("formatSelect");
 const pageInfo = document.getElementById("pageInfo");
 const doneMessage = document.getElementById("doneMessage");
-const consentMessage = document.getElementById("consentMessage");
 const downloadFrame = document.getElementById("downloadFrame");
 
 let submitted = false;
 
-function hasConsent() {
-    try {
-        return typeof window.RCB_Consent !== "undefined" &&
-               window.RCB_Consent.hasConsent &&
-               window.RCB_Consent.hasConsent("bildverarbeitungs-tools-poster-raster-farb-tool-etc");
-    } catch (e) {
-        return false;
-    }
-}
-
-function showConsentMessage() {
-    consentMessage.style.display = "block";
-    doneMessage.style.display = "none";
-    loadingOverlay.style.display = "none";
-    submitButton.disabled = false;
-    submitButton.innerText = "PDF erstellen";
-}
-
-imageInput.addEventListener("click", function (e) {
-    if (!hasConsent()) {
-        e.preventDefault();
-        showConsentMessage();
-    }
-});
-
 imageInput.addEventListener("change", function () {
     doneMessage.style.display = "none";
-    consentMessage.style.display = "none";
-
-    if (!hasConsent()) {
-        this.value = "";
-        preview.style.display = "none";
-        placeholder.style.display = "block";
-        showConsentMessage();
-        return;
-    }
 
     const file = this.files[0];
 
@@ -258,27 +212,15 @@ imageInput.addEventListener("change", function () {
 
 formatSelect.addEventListener("change", function () {
     doneMessage.style.display = "none";
-    consentMessage.style.display = "none";
 
     const pages = this.options[this.selectedIndex].dataset.pages;
     const word = pages === "1" ? "A4-Seite" : "A4-Seiten";
     pageInfo.innerText = "Dein Poster wird aus " + pages + " " + word + " bestehen.";
 });
 
-form.addEventListener("submit", function (e) {
-    doneMessage.style.display = "none";
-    consentMessage.style.display = "none";
-
-    if (!hasConsent()) {
-        e.preventDefault();
-        imageInput.value = "";
-        preview.style.display = "none";
-        placeholder.style.display = "block";
-        showConsentMessage();
-        return;
-    }
-
+form.addEventListener("submit", function () {
     submitted = true;
+    doneMessage.style.display = "none";
     loadingOverlay.style.display = "flex";
     submitButton.disabled = true;
     submitButton.innerText = "PDF wird erstellt...";
@@ -303,10 +245,6 @@ setInterval(function () {
         submitted = false;
     }
 }, 12000);
-
-window.addEventListener("rcb-consent-changed", function() {
-    consentMessage.style.display = "none";
-});
 </script>
 
 </body>
