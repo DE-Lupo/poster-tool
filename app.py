@@ -39,6 +39,11 @@ def farb_tool():
     return render_template("farb_tool.html")
 
 
+@app.route("/perspektive")
+def perspektive():
+    return render_template("perspektive.html")
+
+
 def compute_grid(n):
     cols = int(math.sqrt(n))
     rows = math.ceil(n / cols)
@@ -391,6 +396,74 @@ def create_farb_tool():
         output,
         as_attachment=True,
         download_name=f"farb_reduktion_{color_count}_farben_katicas_galerie.png",
+        mimetype="image/png"
+    )
+
+
+@app.route("/create-perspektive", methods=["POST"])
+def create_perspektive():
+    if "image" not in request.files:
+        return "Keine Datei", 400
+
+    file = request.files["image"]
+    density = int(request.form.get("density", 12))
+    line_color = request.form.get("line_color", "black")
+
+    density = max(6, min(density, 40))
+
+    img = Image.open(file.stream)
+    img = ImageOps.exif_transpose(img)
+    img = img.convert("RGB")
+    img.thumbnail((1600, 1600))
+
+    result = img.copy()
+    draw = ImageDraw.Draw(result)
+
+    width, height = result.size
+    center_x = width // 2
+    center_y = height // 2
+
+    if line_color == "white":
+        color = (255, 255, 255)
+    elif line_color == "blue":
+        color = (22, 121, 214)
+    else:
+        color = (0, 0, 0)
+
+    line_width = max(1, width // 900)
+
+    # Fluchtpunkt markieren
+    radius = max(4, width // 180)
+    draw.ellipse(
+        (center_x - radius, center_y - radius, center_x + radius, center_y + radius),
+        fill=color
+    )
+
+    # Linien von oberen und unteren Kanten zum Fluchtpunkt
+    for i in range(density + 1):
+        x = int(i * width / density)
+
+        draw.line((x, 0, center_x, center_y), fill=color, width=line_width)
+        draw.line((x, height, center_x, center_y), fill=color, width=line_width)
+
+    # Linien von linken und rechten Kanten zum Fluchtpunkt
+    for i in range(density + 1):
+        y = int(i * height / density)
+
+        draw.line((0, y, center_x, center_y), fill=color, width=line_width)
+        draw.line((width, y, center_x, center_y), fill=color, width=line_width)
+
+    # Horizontlinie
+    draw.line((0, center_y, width, center_y), fill=color, width=line_width)
+
+    output = io.BytesIO()
+    result.save(output, format="PNG")
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name="perspektiv_raster_katicas_galerie.png",
         mimetype="image/png"
     )
 
