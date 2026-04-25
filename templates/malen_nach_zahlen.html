@@ -80,6 +80,13 @@ button:disabled {
     cursor: not-allowed;
 }
 
+#consentMessage {
+    display: none;
+    margin-top: 18px;
+    color: #b45309;
+    font-weight: bold;
+}
+
 #doneMessage {
     display: none;
     margin-top: 18px;
@@ -154,6 +161,10 @@ button:disabled {
         <button id="submitButton" type="submit">Vorlage erstellen</button>
     </form>
 
+    <div id="consentMessage">
+        Bitte akzeptieren Sie die funktionalen Services, um dieses Tool zu nutzen.
+    </div>
+
     <div id="doneMessage">
         Vorlage wurde erstellt. Der ZIP-Download sollte gestartet sein.
     </div>
@@ -177,11 +188,42 @@ const form = document.getElementById("form");
 const loadingOverlay = document.getElementById("loadingOverlay");
 const submitButton = document.getElementById("submitButton");
 const doneMessage = document.getElementById("doneMessage");
+const consentMessage = document.getElementById("consentMessage");
 const downloadFrame = document.getElementById("downloadFrame");
 
 let submitted = false;
 
+function hasConsent() {
+    return window.RCB_Consent && window.RCB_Consent.hasConsent("bildverarbeitungs-tools-poster-raster-farb-tool-etc");
+}
+
+function showConsentMessage() {
+    consentMessage.style.display = "block";
+    doneMessage.style.display = "none";
+    loadingOverlay.style.display = "none";
+    submitButton.disabled = false;
+    submitButton.innerText = "Vorlage erstellen";
+}
+
+imageInput.addEventListener("click", function (e) {
+    if (!hasConsent()) {
+        e.preventDefault();
+        showConsentMessage();
+    }
+});
+
 imageInput.addEventListener("change", function () {
+    doneMessage.style.display = "none";
+    consentMessage.style.display = "none";
+
+    if (!hasConsent()) {
+        this.value = "";
+        preview.style.display = "none";
+        placeholder.style.display = "block";
+        showConsentMessage();
+        return;
+    }
+
     const file = this.files[0];
 
     if (!file) {
@@ -201,9 +243,25 @@ imageInput.addEventListener("change", function () {
     reader.readAsDataURL(file);
 });
 
-form.addEventListener("submit", function () {
-    submitted = true;
+form.addEventListener("change", function () {
     doneMessage.style.display = "none";
+    consentMessage.style.display = "none";
+});
+
+form.addEventListener("submit", function (e) {
+    doneMessage.style.display = "none";
+    consentMessage.style.display = "none";
+
+    if (!hasConsent()) {
+        e.preventDefault();
+        imageInput.value = "";
+        preview.style.display = "none";
+        placeholder.style.display = "block";
+        showConsentMessage();
+        return;
+    }
+
+    submitted = true;
     loadingOverlay.style.display = "flex";
     submitButton.disabled = true;
     submitButton.innerText = "Vorlage wird erstellt...";
@@ -229,25 +287,6 @@ setInterval(function () {
     }
 }, 12000);
 </script>
-<script>
-function hasConsent() {
-    return window.RCB_Consent && window.RCB_Consent.hasConsent("bildverarbeitungs-tools-poster-raster-farb-tool-etc");
-}
 
-document.addEventListener("DOMContentLoaded", function () {
-    const form = document.getElementById("form");
-
-    if (!hasConsent()) {
-        form.style.opacity = "0.4";
-    }
-
-    form.addEventListener("submit", function(e) {
-        if (!hasConsent()) {
-            e.preventDefault();
-            alert("Bitte akzeptieren Sie die funktionalen Services, um das Tool zu nutzen.");
-        }
-    });
-});
-</script>
 </body>
 </html>
