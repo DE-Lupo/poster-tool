@@ -11,9 +11,9 @@ app = Flask(__name__)
 
 SHEET_MAP = {
     "A4": 1,
-    "A3": 4,
-    "A2": 8,
-    "A1": 16,
+    "A3": 2,
+    "A2": 4,
+    "A1": 8,
 }
 
 BRAND_TEXT = "Erstellt mit dem Bild-zu-Poster-Service auf Katicas-Galerie.de"
@@ -50,6 +50,15 @@ def proportionen():
 
 
 def compute_grid(n):
+    if n == 1:
+        return 1, 1
+    if n == 2:
+        return 1, 2
+    if n == 4:
+        return 2, 2
+    if n == 8:
+        return 2, 4
+
     cols = int(math.sqrt(n))
     rows = math.ceil(n / cols)
     return cols, rows
@@ -495,17 +504,14 @@ def create_proportionen():
 
     line_width = max(1, width // 900)
 
-    # Mittelachsen
     draw.line((width / 2, 0, width / 2, height), fill=color, width=line_width)
     draw.line((0, height / 2, width, height / 2), fill=color, width=line_width)
 
-    # Drittel-Linien
     draw.line((width / 3, 0, width / 3, height), fill=color, width=line_width)
     draw.line((2 * width / 3, 0, 2 * width / 3, height), fill=color, width=line_width)
     draw.line((0, height / 3, width, height / 3), fill=color, width=line_width)
     draw.line((0, 2 * height / 3, width, 2 * height / 3), fill=color, width=line_width)
 
-    # Diagonalen
     draw.line((0, 0, width, height), fill=color, width=line_width)
     draw.line((width, 0, 0, height), fill=color, width=line_width)
 
