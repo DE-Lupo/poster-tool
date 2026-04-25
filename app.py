@@ -156,6 +156,30 @@ def draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h):
 
     pdf.showPage()
 
+def prepare_poster_image(img, cols, rows):
+    page_px_w = 1000
+    page_px_h = int(page_px_w * (A4[1] / A4[0]))
+
+    poster_w = cols * page_px_w
+    poster_h = rows * page_px_h
+
+    poster = Image.new("RGB", (poster_w, poster_h), "white")
+
+    img_w, img_h = img.size
+    scale = min(poster_w / img_w, poster_h / img_h)
+
+    new_w = int(img_w * scale)
+    new_h = int(img_h * scale)
+
+    resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+    x = (poster_w - new_w) // 2
+    y = (poster_h - new_h) // 2
+
+    poster.paste(resized, (x, y))
+
+    return poster, page_px_w, page_px_h
+
 
 @app.route("/create-pdf", methods=["POST"])
 def create_pdf():
@@ -173,13 +197,10 @@ def create_pdf():
     img = Image.open(file.stream)
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
-    img.thumbnail((1500, 1500))
 
     cols, rows = compute_grid(total_pages)
 
-    img_w, img_h = img.size
-    tile_w = img_w // cols
-    tile_h = img_h // rows
+    poster_img, page_px_w, page_px_h = prepare_poster_image(img, cols, rows)
 
     page_w, page_h = A4
 
@@ -192,14 +213,20 @@ def create_pdf():
 
     for r in range(rows):
         for c_idx in range(cols):
-            left = c_idx * tile_w
-            top = r * tile_h
-            right = img_w if c_idx == cols - 1 else left + tile_w
-            bottom = img_h if r == rows - 1 else top + tile_h
+            left = c_idx * page_px_w
+            top = r * page_px_h
+            right = left + page_px_w
+            bottom = top + page_px_h
 
-            tile = img.crop((left, top, right, bottom))
+            tile = poster_img.crop((left, top, right, bottom))
 
-            pdf.drawImage(ImageReader(tile), 0, 0, width=page_w, height=page_h)
+            pdf.drawImage(
+                ImageReader(tile),
+                0,
+                0,
+                width=page_w,
+                height=page_h
+            )
 
             draw_cut_marks(pdf, page_w, page_h)
             draw_page_label(pdf, fmt, page_number, total_pages, r, c_idx, rows, cols, page_w)
@@ -218,7 +245,6 @@ def create_pdf():
         download_name=f"poster_{fmt}_katicas_galerie.pdf",
         mimetype="application/pdf"
     )
-
 
 @app.route("/create-raster-kontur", methods=["POST"])
 def create_raster_kontur():
