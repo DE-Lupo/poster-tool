@@ -48,28 +48,25 @@ def perspektive():
 def proportionen():
     return render_template("proportionen.html")
 
+
+def mm_to_pt(mm):
+    return mm * 2.83465
+
+
 def compute_grid(n):
-    """
-    Gibt Spalten (cols) und Reihen (rows) zurück
-    passend zu DIN-Formaten auf A4-Basis
-    """
-
-    if n == 1:   # A4
+    if n == 1:
         return 1, 1
-
-    if n == 2:   # A3 → 2 nebeneinander
+    if n == 2:
         return 2, 1
-
-    if n == 4:   # A2 → 2x2
+    if n == 4:
         return 2, 2
-
-    if n == 8:   # A1 → 4x2
+    if n == 8:
         return 4, 2
 
-    # Fallback (falls später erweitert wird)
     cols = int(math.sqrt(n))
     rows = math.ceil(n / cols)
     return cols, rows
+
 
 def draw_cut_marks(pdf, page_w, page_h):
     mark = 18
@@ -78,10 +75,13 @@ def draw_cut_marks(pdf, page_w, page_h):
 
     pdf.line(offset, offset, offset + mark, offset)
     pdf.line(offset, offset, offset, offset + mark)
+
     pdf.line(page_w - offset, offset, page_w - offset - mark, offset)
     pdf.line(page_w - offset, offset, page_w - offset, offset + mark)
+
     pdf.line(offset, page_h - offset, offset + mark, page_h - offset)
     pdf.line(offset, page_h - offset, offset, page_h - offset - mark)
+
     pdf.line(page_w - offset, page_h - offset, page_w - offset - mark, page_h - offset)
     pdf.line(page_w - offset, page_h - offset, page_w - offset, page_h - offset - mark)
 
@@ -105,6 +105,30 @@ def draw_assembly_hints(pdf, row, col, rows, cols, page_w, page_h):
 
     if row < rows - 1:
         pdf.drawCentredString(page_w / 2, 24, "unten an nächste Reihe kleben")
+
+
+def draw_overlap_guides(pdf, margin, printable_w, printable_h, overlap_pt, row, col, rows, cols):
+    if overlap_pt <= 0:
+        return
+
+    pdf.saveState()
+    pdf.setLineWidth(0.6)
+    pdf.setDash(4, 3)
+    pdf.setFont("Helvetica", 7)
+
+    # rechte Überlappung nur markieren, wenn rechts noch eine Seite folgt
+    if col < cols - 1:
+        x = margin + printable_w - overlap_pt
+        pdf.line(x, margin, x, margin + printable_h)
+        pdf.drawString(x + 3, margin + printable_h / 2, "Überlappung")
+
+    # untere Überlappung nur markieren, wenn darunter noch eine Reihe folgt
+    if row < rows - 1:
+        y = margin + overlap_pt
+        pdf.line(margin, y, margin + printable_w, y)
+        pdf.drawString(margin + printable_w / 2 - 25, y + 4, "Überlappung")
+
+    pdf.restoreState()
 
 
 def draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h):
@@ -144,431 +168,4 @@ def draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h):
 
     info_y = 130
     pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(70, info_y, "Druckhinweis:")
-
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(70, info_y - 22, "Bitte beim Drucken „Tatsächliche Größe“ oder „100 %“ auswählen.")
-    pdf.drawString(70, info_y - 40, "Nicht „An Seite anpassen“ verwenden.")
-    pdf.drawString(70, info_y - 58, "Seiten von links nach rechts und oben nach unten zusammenkleben.")
-
-    pdf.setFont("Helvetica", 9)
-    pdf.drawCentredString(page_w / 2, 40, BRAND_TEXT)
-
-    pdf.showPage()
-
-def prepare_poster_image(img, cols, rows):
-    page_px_w = 1000
-    page_px_h = int(page_px_w * (A4[1] / A4[0]))
-
-    poster_w = cols * page_px_w
-    poster_h = rows * page_px_h
-
-    img_w, img_h = img.size
-
-    # COVER: füllt das gesamte Poster ohne Verzerrung
-    scale = max(poster_w / img_w, poster_h / img_h)
-
-    new_w = int(img_w * scale)
-    new_h = int(img_h * scale)
-
-    resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-
-    # mittig zuschneiden
-    left = (new_w - poster_w) // 2
-    top = (new_h - poster_h) // 2
-    right = left + poster_w
-    bottom = top + poster_h
-
-    poster = resized.crop((left, top, right, bottom))
-
-    return poster, page_px_w, page_px_h
-
-@app.route("/create-pdf", methods=["POST"])
-def create_pdf():
-    if "image" not in request.files:
-        return "Keine Datei", 400
-
-    file = request.files["image"]
-    fmt = request.form.get("format", "A4").upper()
-
-    if fmt not in SHEET_MAP:
-        return "Format ungültig", 400
-
-    total_pages = SHEET_MAP[fmt]
-
-    img = Image.open(file.stream)
-    img = ImageOps.exif_transpose(img)
-    img = img.convert("RGB")
-
-    cols, rows = compute_grid(total_pages)
-
-    poster_img, page_px_w, page_px_h = prepare_poster_image(img, cols, rows)
-
-    page_w, page_h = A4
-
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-
-    draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h)
-
-    page_number = 1
-
-    for r in range(rows):
-        for c_idx in range(cols):
-            left = c_idx * page_px_w
-            top = r * page_px_h
-            right = left + page_px_w
-            bottom = top + page_px_h
-
-            tile = poster_img.crop((left, top, right, bottom))
-
-            pdf.drawImage(
-                ImageReader(tile),
-                0,
-                0,
-                width=page_w,
-                height=page_h
-            )
-
-            draw_cut_marks(pdf, page_w, page_h)
-            draw_page_label(pdf, fmt, page_number, total_pages, r, c_idx, rows, cols, page_w)
-            draw_assembly_hints(pdf, r, c_idx, rows, cols, page_w, page_h)
-            draw_branding(pdf, page_w)
-
-            pdf.showPage()
-            page_number += 1
-
-    pdf.save()
-    buffer.seek(0)
-
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"poster_{fmt}_katicas_galerie.pdf",
-        mimetype="application/pdf"
-    )
-
-@app.route("/create-raster-kontur", methods=["POST"])
-def create_raster_kontur():
-    if "image" not in request.files:
-        return "Keine Datei", 400
-
-    file = request.files["image"]
-    mode = request.form.get("mode", "grid")
-    grid_size = int(request.form.get("grid_size", 50))
-
-    img = Image.open(file.stream)
-    img = ImageOps.exif_transpose(img)
-    img = img.convert("RGB")
-    img.thumbnail((1600, 1600))
-
-    result = img.copy()
-
-    if mode in ["contour", "both"]:
-        gray = img.convert("L")
-        edges = gray.filter(ImageFilter.FIND_EDGES)
-        edges = ImageOps.invert(edges)
-        edges = edges.point(lambda p: 255 if p > 200 else 0)
-        result = edges.convert("RGB")
-
-    if mode in ["grid", "both"]:
-        draw = ImageDraw.Draw(result)
-        width, height = result.size
-
-        for x in range(0, width, grid_size):
-            draw.line((x, 0, x, height), fill=(0, 0, 0), width=1)
-
-        for y in range(0, height, grid_size):
-            draw.line((0, y, width, y), fill=(0, 0, 0), width=1)
-
-    output = io.BytesIO()
-    result.save(output, format="PNG")
-    output.seek(0)
-
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name="raster_kontur_katicas_galerie.png",
-        mimetype="image/png"
-    )
-
-
-def create_paint_by_numbers_template(img, color_count):
-    img = img.convert("RGB")
-    img.thumbnail((900, 900))
-
-    quantized = img.quantize(colors=color_count, method=Image.Quantize.MEDIANCUT)
-    palette_img = quantized.convert("RGB")
-
-    colors = palette_img.getcolors(maxcolors=1000000)
-    colors = sorted(colors, reverse=True)
-
-    palette = []
-    for count, color in colors[:color_count]:
-        if color not in palette:
-            palette.append(color)
-
-    small = palette_img.resize((90, 90), Image.Resampling.BILINEAR)
-    small = small.quantize(colors=color_count).convert("RGB")
-
-    scale = 10
-    w, h = small.size
-    template = Image.new("RGB", (w * scale, h * scale), "white")
-    draw = ImageDraw.Draw(template)
-
-    try:
-        font = ImageFont.truetype("arial.ttf", 8)
-    except:
-        font = ImageFont.load_default()
-
-    color_to_number = {}
-    for i, color in enumerate(palette):
-        color_to_number[color] = i + 1
-
-    for y in range(h):
-        for x in range(w):
-            color = small.getpixel((x, y))
-            nearest = min(
-                palette,
-                key=lambda c: abs(c[0] - color[0]) + abs(c[1] - color[1]) + abs(c[2] - color[2])
-            )
-
-            number = color_to_number[nearest]
-
-            x1 = x * scale
-            y1 = y * scale
-            x2 = x1 + scale
-            y2 = y1 + scale
-
-            draw.rectangle((x1, y1, x2, y2), outline=(180, 180, 180), fill="white")
-            draw.text((x1 + 2, y1 + 1), str(number), fill=(0, 0, 0), font=font)
-
-    return template, palette
-
-
-def create_color_legend(palette):
-    row_h = 50
-    width = 500
-    height = 80 + len(palette) * row_h
-
-    legend = Image.new("RGB", (width, height), "white")
-    draw = ImageDraw.Draw(legend)
-
-    try:
-        title_font = ImageFont.truetype("arial.ttf", 24)
-        font = ImageFont.truetype("arial.ttf", 16)
-    except:
-        title_font = ImageFont.load_default()
-        font = ImageFont.load_default()
-
-    draw.text((20, 20), "Farblegende", fill=(0, 0, 0), font=title_font)
-
-    y = 70
-    for i, color in enumerate(palette, start=1):
-        draw.rectangle((20, y, 60, y + 30), fill=color, outline=(0, 0, 0))
-        draw.text((80, y + 6), f"{i}: RGB {color}", fill=(0, 0, 0), font=font)
-        y += row_h
-
-    return legend
-
-
-@app.route("/create-malen-nach-zahlen", methods=["POST"])
-def create_malen_nach_zahlen():
-    if "image" not in request.files:
-        return "Keine Datei", 400
-
-    file = request.files["image"]
-    color_count = int(request.form.get("color_count", 8))
-
-    color_count = max(3, min(color_count, 16))
-
-    img = Image.open(file.stream)
-    img = ImageOps.exif_transpose(img)
-
-    template, palette = create_paint_by_numbers_template(img, color_count)
-    legend = create_color_legend(palette)
-
-    zip_buffer = io.BytesIO()
-
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        template_buffer = io.BytesIO()
-        template.save(template_buffer, format="PNG")
-        template_buffer.seek(0)
-        zip_file.writestr("malen_nach_zahlen_vorlage.png", template_buffer.read())
-
-        legend_buffer = io.BytesIO()
-        legend.save(legend_buffer, format="PNG")
-        legend_buffer.seek(0)
-        zip_file.writestr("farblegende.png", legend_buffer.read())
-
-    zip_buffer.seek(0)
-
-    return send_file(
-        zip_buffer,
-        as_attachment=True,
-        download_name="malen_nach_zahlen_katicas_galerie.zip",
-        mimetype="application/zip"
-    )
-
-
-@app.route("/create-farb-tool", methods=["POST"])
-def create_farb_tool():
-    if "image" not in request.files:
-        return "Keine Datei", 400
-
-    file = request.files["image"]
-    color_count = int(request.form.get("color_count", 8))
-    style = request.form.get("style", "klar")
-
-    color_count = max(3, min(color_count, 24))
-
-    img = Image.open(file.stream)
-    img = ImageOps.exif_transpose(img)
-    img = img.convert("RGB")
-    img.thumbnail((1600, 1600))
-
-    if style == "weich":
-        img = img.filter(ImageFilter.SMOOTH_MORE)
-        img = img.filter(ImageFilter.SMOOTH)
-
-    quantized = img.quantize(colors=color_count, method=Image.Quantize.MEDIANCUT)
-    result = quantized.convert("RGB")
-
-    if style == "klar":
-        result = result.filter(ImageFilter.SHARPEN)
-
-    output = io.BytesIO()
-    result.save(output, format="PNG")
-    output.seek(0)
-
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=f"farb_reduktion_{color_count}_farben_katicas_galerie.png",
-        mimetype="image/png"
-    )
-
-
-@app.route("/create-perspektive", methods=["POST"])
-def create_perspektive():
-    if "image" not in request.files:
-        return "Keine Datei", 400
-
-    file = request.files["image"]
-    density = int(request.form.get("density", 12))
-    line_color = request.form.get("line_color", "black")
-
-    density = max(6, min(density, 40))
-
-    img = Image.open(file.stream)
-    img = ImageOps.exif_transpose(img)
-    img = img.convert("RGB")
-    img.thumbnail((1600, 1600))
-
-    result = img.copy()
-    draw = ImageDraw.Draw(result)
-
-    width, height = result.size
-    center_x = width // 2
-    center_y = height // 2
-
-    if line_color == "white":
-        color = (255, 255, 255)
-    elif line_color == "blue":
-        color = (22, 121, 214)
-    else:
-        color = (0, 0, 0)
-
-    line_width = max(1, width // 900)
-
-    radius = max(4, width // 180)
-    draw.ellipse(
-        (center_x - radius, center_y - radius, center_x + radius, center_y + radius),
-        fill=color
-    )
-
-    for i in range(density + 1):
-        x = int(i * width / density)
-        draw.line((x, 0, center_x, center_y), fill=color, width=line_width)
-        draw.line((x, height, center_x, center_y), fill=color, width=line_width)
-
-    for i in range(density + 1):
-        y = int(i * height / density)
-        draw.line((0, y, center_x, center_y), fill=color, width=line_width)
-        draw.line((width, y, center_x, center_y), fill=color, width=line_width)
-
-    draw.line((0, center_y, width, center_y), fill=color, width=line_width)
-
-    output = io.BytesIO()
-    result.save(output, format="PNG")
-    output.seek(0)
-
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name="perspektiv_raster_katicas_galerie.png",
-        mimetype="image/png"
-    )
-
-
-@app.route("/create-proportionen", methods=["POST"])
-def create_proportionen():
-    if "image" not in request.files:
-        return "Keine Datei", 400
-
-    file = request.files["image"]
-    mode = request.form.get("mode", "standard")
-    line_color = request.form.get("line_color", "black")
-
-    img = Image.open(file.stream)
-    img = ImageOps.exif_transpose(img)
-    img = img.convert("RGB")
-    img.thumbnail((1600, 1600))
-
-    result = img.copy()
-    draw = ImageDraw.Draw(result)
-
-    width, height = result.size
-
-    if line_color == "white":
-        color = (255, 255, 255)
-    elif line_color == "blue":
-        color = (22, 121, 214)
-    else:
-        color = (0, 0, 0)
-
-    line_width = max(1, width // 900)
-
-    draw.line((width / 2, 0, width / 2, height), fill=color, width=line_width)
-    draw.line((0, height / 2, width, height / 2), fill=color, width=line_width)
-
-    draw.line((width / 3, 0, width / 3, height), fill=color, width=line_width)
-    draw.line((2 * width / 3, 0, 2 * width / 3, height), fill=color, width=line_width)
-    draw.line((0, height / 3, width, height / 3), fill=color, width=line_width)
-    draw.line((0, 2 * height / 3, width, 2 * height / 3), fill=color, width=line_width)
-
-    draw.line((0, 0, width, height), fill=color, width=line_width)
-    draw.line((width, 0, 0, height), fill=color, width=line_width)
-
-    if mode == "grid":
-        steps = 8
-        for i in range(1, steps):
-            x = int(width * i / steps)
-            y = int(height * i / steps)
-            draw.line((x, 0, x, height), fill=color, width=1)
-            draw.line((0, y, width, y), fill=color, width=1)
-
-    output = io.BytesIO()
-    result.save(output, format="PNG")
-    output.seek(0)
-
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name="proportionen_checker_katicas_galerie.png",
-        mimetype="image/png"
-    )
-
-
-if __name__ == "__main__":
-    app.run()
+    pdf.drawString(70, info_y, "Druckhin
