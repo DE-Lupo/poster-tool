@@ -201,7 +201,13 @@ const downloadFrame = document.getElementById("downloadFrame");
 let submitted = false;
 
 function hasConsent() {
-    return window.RCB_Consent && window.RCB_Consent.hasConsent("bildverarbeitungs-tools-poster-raster-farb-tool-etc");
+    try {
+        return typeof window.RCB_Consent !== "undefined" &&
+               window.RCB_Consent.hasConsent &&
+               window.RCB_Consent.hasConsent("bildverarbeitungs-tools-poster-raster-farb-tool-etc");
+    } catch (e) {
+        return false;
+    }
 }
 
 function showConsentMessage() {
@@ -297,6 +303,10 @@ setInterval(function () {
         submitted = false;
     }
 }, 12000);
+
+window.addEventListener("rcb-consent-changed", function() {
+    consentMessage.style.display = "none";
+});
 </script>
 
 </body>
