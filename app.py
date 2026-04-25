@@ -163,23 +163,25 @@ def prepare_poster_image(img, cols, rows):
     poster_w = cols * page_px_w
     poster_h = rows * page_px_h
 
-    poster = Image.new("RGB", (poster_w, poster_h), "white")
-
     img_w, img_h = img.size
-    scale = min(poster_w / img_w, poster_h / img_h)
+
+    # COVER: füllt das gesamte Poster ohne Verzerrung
+    scale = max(poster_w / img_w, poster_h / img_h)
 
     new_w = int(img_w * scale)
     new_h = int(img_h * scale)
 
     resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
-    x = (poster_w - new_w) // 2
-    y = (poster_h - new_h) // 2
+    # mittig zuschneiden
+    left = (new_w - poster_w) // 2
+    top = (new_h - poster_h) // 2
+    right = left + poster_w
+    bottom = top + poster_h
 
-    poster.paste(resized, (x, y))
+    poster = resized.crop((left, top, right, bottom))
 
     return poster, page_px_w, page_px_h
-
 
 @app.route("/create-pdf", methods=["POST"])
 def create_pdf():
