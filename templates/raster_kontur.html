@@ -184,6 +184,7 @@ const downloadFrame = document.getElementById("downloadFrame");
 let submitted = false;
 
 imageInput.addEventListener("change", function () {
+    doneMessage.style.display = "none";
     const file = this.files[0];
 
     if (!file) {
