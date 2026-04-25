@@ -34,6 +34,11 @@ def malen_nach_zahlen():
     return render_template("malen_nach_zahlen.html")
 
 
+@app.route("/farb-tool")
+def farb_tool():
+    return render_template("farb_tool.html")
+
+
 def compute_grid(n):
     cols = int(math.sqrt(n))
     rows = math.ceil(n / cols)
@@ -238,7 +243,6 @@ def create_paint_by_numbers_template(img, color_count):
     img = img.convert("RGB")
     img.thumbnail((900, 900))
 
-    # Farben reduzieren
     quantized = img.quantize(colors=color_count, method=Image.Quantize.MEDIANCUT)
     palette_img = quantized.convert("RGB")
 
@@ -250,7 +254,6 @@ def create_paint_by_numbers_template(img, color_count):
         if color not in palette:
             palette.append(color)
 
-    # Bild kleiner segmentieren
     small = palette_img.resize((90, 90), Image.Resampling.BILINEAR)
     small = small.quantize(colors=color_count).convert("RGB")
 
@@ -271,7 +274,6 @@ def create_paint_by_numbers_template(img, color_count):
     for y in range(h):
         for x in range(w):
             color = small.getpixel((x, y))
-
             nearest = min(
                 palette,
                 key=lambda c: abs(c[0] - color[0]) + abs(c[1] - color[1]) + abs(c[2] - color[2])
@@ -285,9 +287,7 @@ def create_paint_by_numbers_template(img, color_count):
             y2 = y1 + scale
 
             draw.rectangle((x1, y1, x2, y2), outline=(180, 180, 180), fill="white")
-
-            if scale >= 8:
-                draw.text((x1 + 2, y1 + 1), str(number), fill=(0, 0, 0), font=font)
+            draw.text((x1 + 2, y1 + 1), str(number), fill=(0, 0, 0), font=font)
 
     return template, palette
 
@@ -326,10 +326,7 @@ def create_malen_nach_zahlen():
     file = request.files["image"]
     color_count = int(request.form.get("color_count", 8))
 
-    if color_count < 3:
-        color_count = 3
-    if color_count > 16:
-        color_count = 16
+    color_count = max(3, min(color_count, 16))
 
     img = Image.open(file.stream)
     img = ImageOps.exif_transpose(img)
@@ -357,6 +354,44 @@ def create_malen_nach_zahlen():
         as_attachment=True,
         download_name="malen_nach_zahlen_katicas_galerie.zip",
         mimetype="application/zip"
+    )
+
+
+@app.route("/create-farb-tool", methods=["POST"])
+def create_farb_tool():
+    if "image" not in request.files:
+        return "Keine Datei", 400
+
+    file = request.files["image"]
+    color_count = int(request.form.get("color_count", 8))
+    style = request.form.get("style", "klar")
+
+    color_count = max(3, min(color_count, 24))
+
+    img = Image.open(file.stream)
+    img = ImageOps.exif_transpose(img)
+    img = img.convert("RGB")
+    img.thumbnail((1600, 1600))
+
+    if style == "weich":
+        img = img.filter(ImageFilter.SMOOTH_MORE)
+        img = img.filter(ImageFilter.SMOOTH)
+
+    quantized = img.quantize(colors=color_count, method=Image.Quantize.MEDIANCUT)
+    result = quantized.convert("RGB")
+
+    if style == "klar":
+        result = result.filter(ImageFilter.SHARPEN)
+
+    output = io.BytesIO()
+    result.save(output, format="PNG")
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"farb_reduktion_{color_count}_farben_katicas_galerie.png",
+        mimetype="image/png"
     )
 
 
