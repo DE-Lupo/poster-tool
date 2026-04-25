@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, send_file
-from PIL import Image, ImageOps, ImageFilter, ImageDraw
+from PIL import Image, ImageOps, ImageFilter, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 import io
 import math
+import zipfile
 
 app = Flask(__name__)
 
@@ -26,6 +27,11 @@ def index():
 @app.route("/raster-kontur")
 def raster_kontur():
     return render_template("raster_kontur.html")
+
+
+@app.route("/malen-nach-zahlen")
+def malen_nach_zahlen():
+    return render_template("malen_nach_zahlen.html")
 
 
 def compute_grid(n):
@@ -162,13 +168,7 @@ def create_pdf():
 
             tile = img.crop((left, top, right, bottom))
 
-            pdf.drawImage(
-                ImageReader(tile),
-                0,
-                0,
-                width=page_w,
-                height=page_h
-            )
+            pdf.drawImage(ImageReader(tile), 0, 0, width=page_w, height=page_h)
 
             draw_cut_marks(pdf, page_w, page_h)
             draw_page_label(pdf, fmt, page_number, total_pages, r, c_idx, rows, cols, page_w)
@@ -231,6 +231,132 @@ def create_raster_kontur():
         as_attachment=True,
         download_name="raster_kontur_katicas_galerie.png",
         mimetype="image/png"
+    )
+
+
+def create_paint_by_numbers_template(img, color_count):
+    img = img.convert("RGB")
+    img.thumbnail((900, 900))
+
+    # Farben reduzieren
+    quantized = img.quantize(colors=color_count, method=Image.Quantize.MEDIANCUT)
+    palette_img = quantized.convert("RGB")
+
+    colors = palette_img.getcolors(maxcolors=1000000)
+    colors = sorted(colors, reverse=True)
+
+    palette = []
+    for count, color in colors[:color_count]:
+        if color not in palette:
+            palette.append(color)
+
+    # Bild kleiner segmentieren
+    small = palette_img.resize((90, 90), Image.Resampling.BILINEAR)
+    small = small.quantize(colors=color_count).convert("RGB")
+
+    scale = 10
+    w, h = small.size
+    template = Image.new("RGB", (w * scale, h * scale), "white")
+    draw = ImageDraw.Draw(template)
+
+    try:
+        font = ImageFont.truetype("arial.ttf", 8)
+    except:
+        font = ImageFont.load_default()
+
+    color_to_number = {}
+    for i, color in enumerate(palette):
+        color_to_number[color] = i + 1
+
+    for y in range(h):
+        for x in range(w):
+            color = small.getpixel((x, y))
+
+            nearest = min(
+                palette,
+                key=lambda c: abs(c[0] - color[0]) + abs(c[1] - color[1]) + abs(c[2] - color[2])
+            )
+
+            number = color_to_number[nearest]
+
+            x1 = x * scale
+            y1 = y * scale
+            x2 = x1 + scale
+            y2 = y1 + scale
+
+            draw.rectangle((x1, y1, x2, y2), outline=(180, 180, 180), fill="white")
+
+            if scale >= 8:
+                draw.text((x1 + 2, y1 + 1), str(number), fill=(0, 0, 0), font=font)
+
+    return template, palette
+
+
+def create_color_legend(palette):
+    row_h = 50
+    width = 500
+    height = 80 + len(palette) * row_h
+
+    legend = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(legend)
+
+    try:
+        title_font = ImageFont.truetype("arial.ttf", 24)
+        font = ImageFont.truetype("arial.ttf", 16)
+    except:
+        title_font = ImageFont.load_default()
+        font = ImageFont.load_default()
+
+    draw.text((20, 20), "Farblegende", fill=(0, 0, 0), font=title_font)
+
+    y = 70
+    for i, color in enumerate(palette, start=1):
+        draw.rectangle((20, y, 60, y + 30), fill=color, outline=(0, 0, 0))
+        draw.text((80, y + 6), f"{i}: RGB {color}", fill=(0, 0, 0), font=font)
+        y += row_h
+
+    return legend
+
+
+@app.route("/create-malen-nach-zahlen", methods=["POST"])
+def create_malen_nach_zahlen():
+    if "image" not in request.files:
+        return "Keine Datei", 400
+
+    file = request.files["image"]
+    color_count = int(request.form.get("color_count", 8))
+
+    if color_count < 3:
+        color_count = 3
+    if color_count > 16:
+        color_count = 16
+
+    img = Image.open(file.stream)
+    img = ImageOps.exif_transpose(img)
+
+    template, palette = create_paint_by_numbers_template(img, color_count)
+    legend = create_color_legend(palette)
+
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        template_buffer = io.BytesIO()
+        template.save(template_buffer, format="PNG")
+        template_buffer.seek(0)
+        zip_file.writestr("malen_nach_zahlen_vorlage.png", template_buffer.read())
+
+        legend_buffer = io.BytesIO()
+        legend.save(legend_buffer, format="PNG")
+        legend_buffer.seek(0)
+        zip_file.writestr("farblegende.png", legend_buffer.read())
+
+    zip_buffer.seek(0)
+
+    return send_file(
+        zip_buffer,
+        as_attachment=True,
+        download_name="malen_nach_zahlen_katicas_galerie.zip",
+        mimetype="application/zip"
     )
 
 
