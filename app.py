@@ -48,21 +48,28 @@ def perspektive():
 def proportionen():
     return render_template("proportionen.html")
 
-
 def compute_grid(n):
-    if n == 1:
-        return 1, 1
-    if n == 2:
-        return 1, 2
-    if n == 4:
-        return 2, 2
-    if n == 8:
-        return 2, 4
+    """
+    Gibt Spalten (cols) und Reihen (rows) zurück
+    passend zu DIN-Formaten auf A4-Basis
+    """
 
+    if n == 1:   # A4
+        return 1, 1
+
+    if n == 2:   # A3 → 2 nebeneinander
+        return 2, 1
+
+    if n == 4:   # A2 → 2x2
+        return 2, 2
+
+    if n == 8:   # A1 → 4x2
+        return 4, 2
+
+    # Fallback (falls später erweitert wird)
     cols = int(math.sqrt(n))
     rows = math.ceil(n / cols)
     return cols, rows
-
 
 def draw_cut_marks(pdf, page_w, page_h):
     mark = 18
