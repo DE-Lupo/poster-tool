@@ -44,6 +44,11 @@ def perspektive():
     return render_template("perspektive.html")
 
 
+@app.route("/proportionen")
+def proportionen():
+    return render_template("proportionen.html")
+
+
 def compute_grid(n):
     cols = int(math.sqrt(n))
     rows = math.ceil(n / cols)
@@ -432,28 +437,22 @@ def create_perspektive():
 
     line_width = max(1, width // 900)
 
-    # Fluchtpunkt markieren
     radius = max(4, width // 180)
     draw.ellipse(
         (center_x - radius, center_y - radius, center_x + radius, center_y + radius),
         fill=color
     )
 
-    # Linien von oberen und unteren Kanten zum Fluchtpunkt
     for i in range(density + 1):
         x = int(i * width / density)
-
         draw.line((x, 0, center_x, center_y), fill=color, width=line_width)
         draw.line((x, height, center_x, center_y), fill=color, width=line_width)
 
-    # Linien von linken und rechten Kanten zum Fluchtpunkt
     for i in range(density + 1):
         y = int(i * height / density)
-
         draw.line((0, y, center_x, center_y), fill=color, width=line_width)
         draw.line((width, y, center_x, center_y), fill=color, width=line_width)
 
-    # Horizontlinie
     draw.line((0, center_y, width, center_y), fill=color, width=line_width)
 
     output = io.BytesIO()
@@ -464,6 +463,68 @@ def create_perspektive():
         output,
         as_attachment=True,
         download_name="perspektiv_raster_katicas_galerie.png",
+        mimetype="image/png"
+    )
+
+
+@app.route("/create-proportionen", methods=["POST"])
+def create_proportionen():
+    if "image" not in request.files:
+        return "Keine Datei", 400
+
+    file = request.files["image"]
+    mode = request.form.get("mode", "standard")
+    line_color = request.form.get("line_color", "black")
+
+    img = Image.open(file.stream)
+    img = ImageOps.exif_transpose(img)
+    img = img.convert("RGB")
+    img.thumbnail((1600, 1600))
+
+    result = img.copy()
+    draw = ImageDraw.Draw(result)
+
+    width, height = result.size
+
+    if line_color == "white":
+        color = (255, 255, 255)
+    elif line_color == "blue":
+        color = (22, 121, 214)
+    else:
+        color = (0, 0, 0)
+
+    line_width = max(1, width // 900)
+
+    # Mittelachsen
+    draw.line((width / 2, 0, width / 2, height), fill=color, width=line_width)
+    draw.line((0, height / 2, width, height / 2), fill=color, width=line_width)
+
+    # Drittel-Linien
+    draw.line((width / 3, 0, width / 3, height), fill=color, width=line_width)
+    draw.line((2 * width / 3, 0, 2 * width / 3, height), fill=color, width=line_width)
+    draw.line((0, height / 3, width, height / 3), fill=color, width=line_width)
+    draw.line((0, 2 * height / 3, width, 2 * height / 3), fill=color, width=line_width)
+
+    # Diagonalen
+    draw.line((0, 0, width, height), fill=color, width=line_width)
+    draw.line((width, 0, 0, height), fill=color, width=line_width)
+
+    if mode == "grid":
+        steps = 8
+        for i in range(1, steps):
+            x = int(width * i / steps)
+            y = int(height * i / steps)
+            draw.line((x, 0, x, height), fill=color, width=1)
+            draw.line((0, y, width, y), fill=color, width=1)
+
+    output = io.BytesIO()
+    result.save(output, format="PNG")
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name="proportionen_checker_katicas_galerie.png",
         mimetype="image/png"
     )
 
