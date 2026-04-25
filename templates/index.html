@@ -251,6 +251,25 @@ setInterval(function () {
     }
 }, 12000);
 </script>
+<script>
+function hasConsent() {
+    return window.RCB_Consent && window.RCB_Consent.hasConsent("bildverarbeitungs-tools-poster-raster-farb-tool-etc");
+}
 
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("form");
+
+    if (!hasConsent()) {
+        form.style.opacity = "0.4";
+    }
+
+    form.addEventListener("submit", function(e) {
+        if (!hasConsent()) {
+            e.preventDefault();
+            alert("Bitte akzeptieren Sie die funktionalen Services, um das Tool zu nutzen.");
+        }
+    });
+});
+</script>
 </body>
 </html>
