@@ -39,6 +39,11 @@ def farb_tool():
     return render_template("farb_tool.html")
 
 
+@app.route("/farben-analysieren")
+def farben_analysieren():
+    return render_template("farben_analysieren.html")
+
+
 @app.route("/perspektive")
 def perspektive():
     return render_template("perspektive.html")
