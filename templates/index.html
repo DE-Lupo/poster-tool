@@ -19,23 +19,24 @@ body {
 .container {
     max-width: 520px;
     width: 100%;
-    min-height: 620px;
     background: white;
-    padding: 40px;
+    padding: 28px;
     border-radius: 20px;
-    box-shadow: none;
     border: 1px solid rgba(0,0,0,0.05);
 }
 
-h1 { margin-bottom: 10px; }
-p { color: #555; }
+h1 { margin: 0 0 8px; }
+p { color: #555; margin: 0 0 14px; }
 
-input[type="file"] { margin-top: 15px; }
+input[type="file"] {
+    margin-top: 8px;
+    max-width: 100%;
+}
 
 #previewBox {
-    margin: 20px auto 0;
+    margin: 14px auto 0;
     width: 100%;
-    height: 260px;
+    height: 220px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -56,16 +57,39 @@ input[type="file"] { margin-top: 15px; }
     display: none;
 }
 
+.optionsGrid {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    text-align: left;
+}
+
+.optionFull {
+    grid-column: 1 / -1;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #555;
+    font-size: 13px;
+}
+
 select {
-    margin-top: 18px;
-    padding: 10px;
-    font-size: 16px;
+    width: 100%;
+    padding: 9px;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
 }
 
 button {
-    margin-top: 25px;
-    padding: 15px 25px;
-    font-size: 16px;
+    margin-top: 14px;
+    width: 100%;
+    padding: 12px 18px;
+    font-size: 15px;
     border: none;
     border-radius: 10px;
     background: #6d28d9;
@@ -81,16 +105,18 @@ button:disabled {
 }
 
 #pageInfo {
-    margin-top: 15px;
+    margin-top: 12px;
     color: #555;
     font-weight: bold;
+    font-size: 14px;
 }
 
 #doneMessage {
     display: none;
-    margin-top: 18px;
+    margin-top: 12px;
     color: #15803d;
     font-weight: bold;
+    font-size: 14px;
 }
 
 #loadingOverlay {
@@ -105,24 +131,46 @@ button:disabled {
 
 .loaderBox {
     background: white;
-    padding: 35px;
+    padding: 30px;
     border-radius: 20px;
-    width: 280px;
+    width: 260px;
     text-align: center;
 }
 
 .spinner {
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
     border: 6px solid #ddd;
     border-top: 6px solid #6d28d9;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin: 0 auto 20px;
+    margin: 0 auto 18px;
 }
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+@media (max-width: 520px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 22px;
+    }
+
+    .optionsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .optionFull {
+        grid-column: auto;
+    }
+
+    #previewBox {
+        height: 200px;
+    }
 }
 </style>
 </head>
@@ -140,43 +188,40 @@ button:disabled {
             <span id="placeholder">Noch kein Bild ausgewählt</span>
             <img id="preview" alt="Bildvorschau">
         </div>
-        
-        <br>
 
-        <select id="formatSelect" name="format">
-            <option value="A4" data-pages="1">A4 (1 Seite)</option>
-            <option value="A3" data-pages="2">A3 (2 Seiten)</option>
-            <option value="A2" data-pages="4">A2 (4 Seiten)</option>
-            <option value="A1" data-pages="8">A1 (8 Seiten)</option>
-        </select>
-<br>
+        <div class="optionsGrid">
+            <div class="optionFull">
+                <label for="formatSelect">Posterformat</label>
+                <select id="formatSelect" name="format">
+                    <option value="A4" data-pages="1">A4 (1 Seite)</option>
+                    <option value="A3" data-pages="2">A3 (2 Seiten)</option>
+                    <option value="A2" data-pages="4">A2 (4 Seiten)</option>
+                    <option value="A1" data-pages="8">A1 (8 Seiten)</option>
+                </select>
+            </div>
 
-<label style="display:block;margin-top:18px;color:#555;">
-    Rand (mm)
-</label>
+            <div>
+                <label for="marginSelect">Rand</label>
+                <select id="marginSelect" name="margin_mm">
+                    <option value="0">Kein Rand</option>
+                    <option value="5" selected>5 mm</option>
+                    <option value="10">10 mm</option>
+                </select>
+            </div>
 
-<select name="margin_mm">
-    <option value="0">Kein Rand</option>
-    <option value="5" selected>5 mm</option>
-    <option value="10">10 mm</option>
-</select>
+            <div>
+                <label for="overlapSelect">Überlappung</label>
+                <select id="overlapSelect" name="overlap_mm">
+                    <option value="0" selected>Keine</option>
+                    <option value="5">5 mm</option>
+                    <option value="10">10 mm</option>
+                </select>
+            </div>
+        </div>
 
-<br>
-
-<label style="display:block;margin-top:18px;color:#555;">
-    Überlappung (mm)
-</label>
-
-<select name="overlap_mm">
-    <option value="0" selected>Keine</option>
-    <option value="5">5 mm</option>
-    <option value="10">10 mm</option>
-</select>
         <div id="pageInfo">
             Dein Poster wird aus 1 A4-Seite bestehen.
         </div>
-
-        <br>
 
         <button id="submitButton" type="submit">PDF erstellen</button>
     </form>
