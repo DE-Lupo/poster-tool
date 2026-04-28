@@ -120,7 +120,7 @@ button:disabled {
     background: white;
     border-radius: 20px;
     padding: 30px;
-    max-width: 760px;
+    max-width: 880px;
     width: 95%;
     max-height: 88vh;
     overflow-y: auto;
@@ -166,7 +166,7 @@ button:disabled {
 }
 
 .colorCard {
-    width: 220px;
+    width: 250px;
     border: 1px solid #ddd;
     border-radius: 14px;
     overflow: hidden;
@@ -199,7 +199,7 @@ button:disabled {
     background: #f8fafc;
     border-radius: 10px;
     font-size: 12px;
-    min-height: 145px;
+    min-height: 210px;
 }
 
 .mixTitle {
@@ -496,13 +496,14 @@ function findNearestRal(r, g, b) {
 }
 
 function getMixSuggestion(r, g, b, medium) {
-    const base = getBaseMix(r, g, b);
+    const base = getAdvancedBaseMix(r, g, b);
 
     if (medium === "oel") {
         return {
             title: "Öl-Mischung ca.",
             lines: base.lines,
-            tip: base.tip + " Bei Ölfarbe kleine Mengen Malmittel verwenden und langsam vermalen."
+            corrections: base.corrections,
+            tip: base.tip + " Bei Ölfarbe langsam vermalen und bei Bedarf wenig Malmittel verwenden."
         };
     }
 
@@ -513,96 +514,150 @@ function getMixSuggestion(r, g, b, medium) {
     return {
         title: "Acryl-Mischung ca.",
         lines: base.lines,
+        corrections: base.corrections,
         tip: base.tip
     };
 }
 
-function getBaseMix(r, g, b) {
+function getAdvancedBaseMix(r, g, b) {
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     const brightness = (r + g + b) / 3;
     const saturation = max - min;
+    const isWarm = r >= b;
 
-    if (brightness > 225 && saturation < 35) {
+    if (brightness > 230 && saturation < 30) {
         return {
-            lines: ["10 Teile Titanweiß", "1 Teil Ocker oder Beige", "Spur Gelb"],
-            tip: "Sehr vorsichtig tönen – helle Farben kippen schnell."
+            lines: ["10 Teile Titanweiß", "Spur Lichter Ocker", "Spur Gelb"],
+            corrections: ["zu gelblich → mehr Weiß", "zu kalt → Spur Ocker", "zu dunkel → Weiß ergänzen"],
+            tip: "Sehr helle Farben immer mit Weiß beginnen und nur minimal tönen."
         };
     }
 
     if (brightness < 45) {
         return {
-            lines: ["8 Teile Elfenbeinschwarz", "1 Teil Ultramarinblau", "1 Teil Umbra gebrannt"],
-            tip: "Für Tiefe Schwarz nie allein verwenden, etwas Blau oder Umbra ergänzt es natürlicher."
+            lines: ["6 Teile Elfenbeinschwarz", "1 Teil Umbra gebrannt", "1 Teil Ultramarinblau"],
+            corrections: ["zu flach → etwas Blau oder Umbra", "zu hart → wenig Weiß", "zu braun → Ultramarinblau ergänzen"],
+            tip: "Schwarz wirkt natürlicher, wenn es mit Blau oder Umbra gebrochen wird."
         };
     }
 
-    if (saturation < 28) {
-        if (brightness > 150) {
+    if (saturation < 30) {
+        if (isWarm) {
             return {
-                lines: ["6 Teile Titanweiß", "1 Teil Elfenbeinschwarz", "Spur Ocker"],
-                tip: "Für warme Grautöne etwas Ocker, für kühle Grautöne etwas Blau ergänzen."
+                lines: ["5 Teile Titanweiß", "1 Teil Elfenbeinschwarz", "Spur Umbra gebrannt", "Spur Lichter Ocker"],
+                corrections: ["zu warm → etwas Ultramarinblau", "zu kühl → Ocker oder Umbra", "zu dunkel → Weiß"],
+                tip: "Warme Grautöne entstehen durch Schwarz plus kleine Mengen Braun/Ocker."
             };
         }
 
         return {
-            lines: ["3 Teile Titanweiß", "2 Teile Elfenbeinschwarz", "1 Teil Umbra gebrannt"],
-            tip: "Dunkles Grau langsam mit Weiß aufhellen."
+            lines: ["5 Teile Titanweiß", "1 Teil Elfenbeinschwarz", "Spur Ultramarinblau"],
+            corrections: ["zu blau → Spur Umbra", "zu dunkel → Weiß", "zu neutral → mehr Blau"],
+            tip: "Kühle Grautöne brauchen meist eine kleine Menge Blau."
         };
     }
 
-    if (r > g && r > b) {
-        if (g > 120 && b < 100) {
-            return {
-                lines: ["3 Teile Kadmiumrot", "2 Teile Kadmiumgelb", "1 Teil Titanweiß", "Spur Umbra"],
-                tip: "Für Orange/Terrakotta zuerst Rot und Gelb mischen, dann mit Weiß aufhellen."
-            };
-        }
+    if (r > 150 && g > 105 && b > 70 && r > g && g > b) {
+        return {
+            lines: ["5 Teile Titanweiß", "2 Teile Lichter Ocker", "1 Teil Kadmiumrot", "Spur Umbra gebrannt"],
+            corrections: ["zu rosa → Ocker ergänzen", "zu gelb → Spur Rot oder Umbra", "zu dunkel → Weiß"],
+            tip: "Haut- und Beigetöne immer hell starten und mit Rot/Umbra nur vorsichtig wärmen."
+        };
+    }
 
-        if (b > 110) {
+    if (r > 120 && g > 65 && g < 150 && b < 90) {
+        return {
+            lines: ["3 Teile Kadmiumrot", "2 Teile Lichter Ocker", "1 Teil Kadmiumgelb", "1 Teil Umbra gebrannt"],
+            corrections: ["zu orange → Umbra ergänzen", "zu braun → Gelb oder Rot", "zu dunkel → Weiß"],
+            tip: "Terrakotta entsteht aus Rot, Ocker und etwas Umbra."
+        };
+    }
+
+    if (r > 160 && g > 135 && b < 100) {
+        return {
+            lines: ["4 Teile Kadmiumgelb", "2 Teile Lichter Ocker", "1 Teil Titanweiß", "Spur Umbra gebrannt"],
+            corrections: ["zu grell → Ocker oder Umbra", "zu dunkel → Weiß", "zu grünlich → Spur Rot"],
+            tip: "Ocker macht Gelb natürlicher und weniger künstlich."
+        };
+    }
+
+    if (r > 170 && g > 80 && g < 170 && b < 80) {
+        return {
+            lines: ["3 Teile Kadmiumgelb", "2 Teile Kadmiumrot", "1 Teil Titanweiß", "Spur Lichter Ocker"],
+            corrections: ["zu rot → Gelb", "zu gelb → Rot", "zu kräftig → Weiß oder Ocker"],
+            tip: "Orange zuerst aus Gelb und Rot mischen, danach aufhellen."
+        };
+    }
+
+    if (r > g && r > b && saturation > 50) {
+        if (b > 100) {
             return {
-                lines: ["3 Teile Magenta", "1 Teil Ultramarinblau", "2 Teile Titanweiß"],
-                tip: "Für Rosa/Violett lieber Magenta statt klassischem Rot verwenden."
+                lines: ["3 Teile Magenta", "1 Teil Kadmiumrot", "1 Teil Titanweiß", "Spur Ultramarinblau"],
+                corrections: ["zu violett → mehr Rot", "zu knallig → Weiß oder Umbra", "zu dunkel → Weiß"],
+                tip: "Rosige Rottöne gelingen besser mit Magenta als mit reinem Rot."
             };
         }
 
         return {
-            lines: ["4 Teile Kadmiumrot", "1 Teil Magenta", "1 Teil Titanweiß", "Spur Umbra"],
-            tip: "Rot mit wenig Umbra abdunkeln, nicht zu viel Schwarz verwenden."
+            lines: ["4 Teile Kadmiumrot", "1 Teil Magenta", "1 Teil Titanweiß", "Spur Umbra gebrannt"],
+            corrections: ["zu hell → mehr Rot", "zu kalt → Spur Gelb", "zu leuchtend → Umbra"],
+            tip: "Rot besser mit Umbra abdunkeln als mit Schwarz."
         };
     }
 
-    if (g > r && g > b) {
-        if (r > 120) {
+    if (g > r && g > b && saturation > 40) {
+        if (r > 110) {
             return {
-                lines: ["3 Teile Kadmiumgelb", "2 Teile Ultramarinblau", "1 Teil Titanweiß", "Spur Ocker"],
-                tip: "Für natürliche Grüntöne etwas Ocker oder Umbra ergänzen."
+                lines: ["3 Teile Kadmiumgelb", "2 Teile Ultramarinblau", "1 Teil Lichter Ocker", "Spur Umbra gebrannt"],
+                corrections: ["zu grell → Umbra", "zu dunkel → Gelb oder Weiß", "zu kalt → Ocker"],
+                tip: "Natürliche Grüntöne brauchen fast immer Ocker oder Umbra."
             };
         }
 
         return {
-            lines: ["2 Teile Ultramarinblau", "2 Teile Kadmiumgelb", "1 Teil Titanweiß"],
-            tip: "Mehr Gelb macht das Grün wärmer, mehr Blau macht es kühler."
+            lines: ["2 Teile Kadmiumgelb", "2 Teile Ultramarinblau", "1 Teil Cyan", "Spur Titanweiß"],
+            corrections: ["zu blau → Gelb", "zu gelb → Blau", "zu grell → Umbra"],
+            tip: "Mehr Gelb macht Grün wärmer, mehr Blau macht es kühler."
+        };
+    }
+
+    if (g > 120 && b > 120 && r < 120) {
+        return {
+            lines: ["3 Teile Cyan", "1 Teil Kadmiumgelb", "2 Teile Titanweiß", "Spur Ultramarinblau"],
+            corrections: ["zu grün → Cyan oder Blau", "zu blau → Gelb", "zu kräftig → Weiß"],
+            tip: "Türkis entsteht aus Cyan, wenig Gelb und Weiß."
+        };
+    }
+
+    if (b > r && b > g && g > 110 && brightness > 120) {
+        return {
+            lines: ["5 Teile Titanweiß", "2 Teile Cyan", "1 Teil Ultramarinblau"],
+            corrections: ["zu dunkel → Weiß", "zu türkis → Ultramarinblau", "zu violett → Cyan"],
+            tip: "Himmelblau immer sehr hell ansetzen und Blau sparsam dosieren."
         };
     }
 
     if (b > r && b > g) {
-        if (g > 120) {
-            return {
-                lines: ["3 Teile Cyan", "1 Teil Ultramarinblau", "2 Teile Titanweiß"],
-                tip: "Für Himmelblau mit Weiß arbeiten und nur wenig dunkles Blau einsetzen."
-            };
-        }
-
         return {
-            lines: ["4 Teile Ultramarinblau", "1 Teil Cyan", "1 Teil Titanweiß", "Spur Schwarz"],
-            tip: "Blau sehr langsam abdunkeln – Schwarz nur sparsam verwenden."
+            lines: ["4 Teile Ultramarinblau", "1 Teil Cyan", "1 Teil Titanweiß", "Spur Elfenbeinschwarz"],
+            corrections: ["zu dunkel → Weiß", "zu violett → Cyan", "zu grell → Spur Schwarz oder Umbra"],
+            tip: "Blau sehr vorsichtig abdunkeln, Schwarz nur in kleinen Mengen."
+        };
+    }
+
+    if (r > 80 && g > 50 && b < 80) {
+        return {
+            lines: ["3 Teile Umbra gebrannt", "2 Teile Lichter Ocker", "1 Teil Kadmiumrot", "Spur Titanweiß"],
+            corrections: ["zu rot → Ocker oder Umbra", "zu gelb → Rot oder Umbra", "zu dunkel → Weiß"],
+            tip: "Braun lebt von kleinen Korrekturen mit Ocker, Rot und Umbra."
         };
     }
 
     return {
-        lines: ["3 Teile Titanweiß", "1 Teil Ocker", "1 Teil passende Grundfarbe", "Spur Schwarz oder Umbra"],
-        tip: "Schrittweise annähern: erst hell mischen, dann vorsichtig sättigen oder abdunkeln."
+        lines: ["3 Teile Titanweiß", "1 Teil Lichter Ocker", "1 Teil passende Grundfarbe", "Spur Umbra oder Schwarz"],
+        corrections: ["zu hell → Grundfarbe erhöhen", "zu dunkel → Weiß", "zu grell → Umbra oder Komplementärfarbe"],
+        tip: "Erst eine helle Basis mischen und dann Schritt für Schritt korrigieren."
     };
 }
 
@@ -615,6 +670,7 @@ function convertToWatercolorMix(base) {
             .replace(/(\d+)\sTeile?\sKadmiumrot/g, "Rot sparsam lasieren")
             .replace(/(\d+)\sTeile?\sUltramarinblau/g, "Ultramarinblau lasierend")
             .replace(/(\d+)\sTeile?\sUmbra gebrannt/g, "Umbra gebrannt verdünnt")
+            .replace(/(\d+)\sTeile?\sLichter Ocker/g, "Lichter Ocker verdünnt")
             .replace(/(\d+)\sTeile?\sOcker/g, "Ocker verdünnt")
             .replace(/(\d+)\sTeile?\sMagenta/g, "Magenta sparsam")
             .replace(/(\d+)\sTeile?\sCyan/g, "Cyan verdünnt");
@@ -623,7 +679,8 @@ function convertToWatercolorMix(base) {
     return {
         title: "Aquarell-Mischung ca.",
         lines: lines,
-        tip: "Bei Aquarell wird vor allem mit Wasser, Lasuren und Papierweiß aufgehellt – nicht mit Weiß wie bei Acryl oder Öl."
+        corrections: ["zu kräftig → mehr Wasser", "zu blass → weitere Lasur", "zu dunkel → trocknen lassen und heller darüber arbeiten"],
+        tip: "Bei Aquarell wird vor allem mit Wasser, Lasuren und Papierweiß aufgehellt."
     };
 }
 
@@ -633,7 +690,6 @@ function displayColors(colors, medium) {
     colors.forEach(color => {
         const ral = findNearestRal(color.r, color.g, color.b);
         const mix = getMixSuggestion(color.r, color.g, color.b, medium);
-        const mixText = mix.lines.join("\n");
 
         const card = document.createElement("div");
         card.className = "colorCard";
@@ -648,6 +704,10 @@ function displayColors(colors, medium) {
                 <div class="mixBox">
                     <div class="mixTitle">${mix.title}</div>
                     ${mix.lines.map(line => `<div>${line}</div>`).join("")}
+
+                    <div class="mixTitle" style="margin-top:8px;">Korrigieren</div>
+                    ${mix.corrections.map(line => `<div>${line}</div>`).join("")}
+
                     <div style="margin-top:7px;"><em>${mix.tip}</em></div>
                 </div>
 
@@ -674,9 +734,13 @@ RGB ${color.r}, ${color.g}, ${color.b}
 RAL ca. ${ral.code} ${ral.name}
 
 ${mix.title}:
-${mixText}
+${mix.lines.join("\n")}
 
-Tipp: ${mix.tip}`;
+Korrigieren:
+${mix.corrections.join("\n")}
+
+Tipp:
+${mix.tip}`;
 
             copyText(fullMixText);
             mixButton.innerText = "Kopiert";
