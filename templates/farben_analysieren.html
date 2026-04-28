@@ -8,7 +8,6 @@
 body {
     font-family: Arial, sans-serif;
     background: #1679D6;
-    text-align: center;
     margin: 0;
     display: flex;
     align-items: center;
@@ -19,31 +18,21 @@ body {
 .container {
     max-width: 520px;
     width: 100%;
-    min-height: 620px;
     background: white;
     padding: 40px;
     border-radius: 20px;
+    text-align: center;
 }
 
-h1 { margin-bottom: 10px; }
-p { color: #555; }
-
-input[type="file"] { margin-top: 15px; }
-
 #previewBox {
-    margin: 20px auto 0;
-    width: 100%;
+    margin-top: 20px;
     height: 260px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
     border: 1px solid #ddd;
+    border-radius: 12px;
     background: #fafafa;
-}
-
-#placeholder {
-    color: #999;
 }
 
 #preview {
@@ -62,14 +51,9 @@ button {
     cursor: pointer;
 }
 
-button:hover { background: #5b21b6; }
-
-button:disabled {
-    background: #999;
-}
+button:disabled { background: #999; }
 
 /* POPUP */
-
 #paletteModal {
     display: none;
     position: fixed;
@@ -84,33 +68,26 @@ button:disabled {
     background: white;
     border-radius: 20px;
     padding: 30px;
-    max-width: 560px;
-    width: 90%;
+    width: 95%;
+    max-width: 600px;
     position: relative;
 }
 
 #closeModal {
     position: absolute;
-    top: 12px;
-    right: 14px;
-    width: 36px;
-    height: 36px;
+    top: 10px;
+    right: 10px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     border: none;
-    font-size: 22px;
-    font-weight: bold;
     background: #6d28d9;
     color: white;
+    font-size: 22px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-#closeModal:hover {
-    background: #5b21b6;
-}
-
+/* Farben */
 #palette {
     margin-top: 20px;
     display: flex;
@@ -120,7 +97,7 @@ button:disabled {
 }
 
 .colorCard {
-    width: 120px;
+    width: 160px;
     border: 1px solid #ddd;
     border-radius: 12px;
     overflow: hidden;
@@ -132,12 +109,14 @@ button:disabled {
 
 .colorInfo {
     padding: 10px;
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: nowrap;
 }
 
 .copyButton {
-    margin-top: 8px;
-    padding: 7px;
+    margin-top: 6px;
+    padding: 6px;
     font-size: 12px;
     border-radius: 8px;
     background: #1679D6;
@@ -147,7 +126,6 @@ button:disabled {
 }
 
 /* Loader */
-
 #loadingOverlay {
     display: none;
     position: fixed;
@@ -177,28 +155,23 @@ button:disabled {
 
 <div class="container">
     <h1>Farben analysieren</h1>
-    <p>Lade ein Bild hoch und erkenne die wichtigsten Farben daraus.</p>
-
     <input id="imageInput" type="file" accept="image/*">
 
     <div id="previewBox">
-        <span id="placeholder">Noch kein Bild ausgewählt</span>
         <img id="preview">
     </div>
 
     <button id="analyzeButton" disabled>Farben analysieren</button>
 </div>
 
-<!-- POPUP -->
 <div id="paletteModal">
     <div class="modalBox">
         <button id="closeModal">&times;</button>
-        <h2>Deine Farbpalette</h2>
+        <h2>Farbpalette</h2>
         <div id="palette"></div>
     </div>
 </div>
 
-<!-- LOADER -->
 <div id="loadingOverlay">
     <div class="spinner"></div>
 </div>
@@ -206,139 +179,138 @@ button:disabled {
 <script>
 const imageInput = document.getElementById("imageInput");
 const preview = document.getElementById("preview");
-const placeholder = document.getElementById("placeholder");
 const analyzeButton = document.getElementById("analyzeButton");
-
 const palette = document.getElementById("palette");
 const paletteModal = document.getElementById("paletteModal");
-const closeModal = document.getElementById("closeModal");
-const loadingOverlay = document.getElementById("loadingOverlay");
 
-let loadedImage = null;
+let loadedImage;
 
-imageInput.addEventListener("change", function () {
-    paletteModal.style.display = "none";
-
-    const file = this.files[0];
-
+imageInput.onchange = e => {
+    const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function (event) {
-        preview.src = event.target.result;
+    reader.onload = ev => {
+        preview.src = ev.target.result;
         preview.style.display = "block";
-        placeholder.style.display = "none";
         analyzeButton.disabled = false;
 
         loadedImage = new Image();
-        loadedImage.src = event.target.result;
+        loadedImage.src = ev.target.result;
     };
     reader.readAsDataURL(file);
-});
+};
 
-analyzeButton.onclick = function () {
-    loadingOverlay.style.display = "flex";
+analyzeButton.onclick = () => {
+    document.getElementById("loadingOverlay").style.display = "flex";
 
-    setTimeout(function () {
+    setTimeout(() => {
         const colors = extractColors(loadedImage, 6);
         displayColors(colors);
 
-        loadingOverlay.style.display = "none";
+        document.getElementById("loadingOverlay").style.display = "none";
         paletteModal.style.display = "flex";
     }, 400);
 };
 
-function extractColors(image, count) {
+function extractColors(img, count) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
-
     canvas.width = 150;
     canvas.height = 150;
-    ctx.drawImage(image, 0, 0, 150, 150);
+    ctx.drawImage(img, 0, 0, 150, 150);
 
-    const data = ctx.getImageData(0, 0, 150, 150).data;
+    const data = ctx.getImageData(0,0,150,150).data;
     const map = {};
 
-    for (let i = 0; i < data.length; i += 16) {
-        let r = Math.round(data[i] / 32) * 32;
-        let g = Math.round(data[i+1] / 32) * 32;
-        let b = Math.round(data[i+2] / 32) * 32;
-
+    for (let i=0;i<data.length;i+=16){
+        let r = Math.round(data[i]/32)*32;
+        let g = Math.round(data[i+1]/32)*32;
+        let b = Math.round(data[i+2]/32)*32;
         const key = `${r},${g},${b}`;
-        map[key] = (map[key] || 0) + 1;
+        map[key] = (map[key]||0)+1;
     }
 
     return Object.entries(map)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, count)
-        .map(e => {
-            const [r,g,b] = e[0].split(",").map(Number);
-            return { r,g,b, hex: rgbToHex(r,g,b) };
+        .sort((a,b)=>b[1]-a[1])
+        .slice(0,count)
+        .map(e=>{
+            const [r,g,b]=e[0].split(",").map(Number);
+            return {r,g,b,hex:rgbToHex(r,g,b)};
         });
 }
 
-function rgbToHex(r,g,b) {
-    return "#" + [r,g,b].map(x => {
-        const h = x.toString(16);
-        return h.length === 1 ? "0"+h : h;
+function rgbToHex(r,g,b){
+    return "#"+[r,g,b].map(x=>{
+        const h=x.toString(16);
+        return h.length===1?"0"+h:h;
     }).join("").toUpperCase();
 }
 
-function displayColors(colors) {
-    palette.innerHTML = "";
+/* RAL */
+const ralColors = [
+    { code: "1015", name: "Hellelfenbein", r: 230, g: 210, b: 181 },
+    { code: "3000", name: "Feuerrot", r: 175, g: 43, b: 30 },
+    { code: "5015", name: "Himmelblau", r: 0, g: 124, b: 176 },
+    { code: "6018", name: "Gelbgrün", r: 97, g: 153, b: 59 },
+    { code: "7016", name: "Anthrazitgrau", r: 56, g: 62, b: 66 },
+    { code: "7035", name: "Lichtgrau", r: 197, g: 199, b: 196 },
+    { code: "9005", name: "Tiefschwarz", r: 14, g: 14, b: 16 },
+    { code: "9010", name: "Reinweiß", r: 241, g: 236, b: 225 }
+];
 
-    colors.forEach(c => {
-        const card = document.createElement("div");
-        card.className = "colorCard";
+function findNearestRal(r,g,b){
+    let best=ralColors[0];
+    let dist=Infinity;
 
-        const box = document.createElement("div");
-        box.className = "colorBox";
-        box.style.background = c.hex;
+    ralColors.forEach(ral=>{
+        let d=(r-ral.r)**2+(g-ral.g)**2+(b-ral.b)**2;
+        if(d<dist){dist=d;best=ral;}
+    });
+    return best;
+}
 
-        const info = document.createElement("div");
-        info.className = "colorInfo";
-        info.innerHTML = `<strong>${c.hex}</strong><br>RGB ${c.r}, ${c.g}, ${c.b}`;
+function displayColors(colors){
+    palette.innerHTML="";
 
-        const btn = document.createElement("button");
-        btn.className = "copyButton";
-        btn.innerText = "Kopieren";
+    colors.forEach(c=>{
+        const ral = findNearestRal(c.r,c.g,c.b);
 
-        btn.onclick = function () {
+        const card=document.createElement("div");
+        card.className="colorCard";
+
+        card.innerHTML=`
+            <div class="colorBox" style="background:${c.hex}"></div>
+            <div class="colorInfo">
+                <strong>${c.hex}</strong><br>
+                RGB ${c.r}, ${c.g}, ${c.b}<br>
+                RAL ${ral.code} ${ral.name}
+                <br>
+                <button class="copyButton">Kopieren</button>
+            </div>
+        `;
+
+        const btn = card.querySelector("button");
+        btn.onclick=()=>{
             copyText(c.hex);
-            btn.innerText = "Kopiert";
-            setTimeout(() => btn.innerText = "Kopieren", 1200);
+            btn.innerText="Kopiert";
+            setTimeout(()=>btn.innerText="Kopieren",1200);
         };
 
-        info.appendChild(btn);
-        card.appendChild(box);
-        card.appendChild(info);
         palette.appendChild(card);
     });
 }
 
-function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text);
-    } else {
-        const input = document.createElement("textarea");
-        input.value = text;
-        input.style.position = "fixed";
-        input.style.left = "-9999px";
-        document.body.appendChild(input);
-        input.focus();
-        input.select();
-        document.execCommand("copy");
-        document.body.removeChild(input);
-    }
+function copyText(text){
+    const input=document.createElement("textarea");
+    input.value=text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    document.body.removeChild(input);
 }
 
-closeModal.onclick = () => paletteModal.style.display = "none";
-
-paletteModal.onclick = (e) => {
-    if (e.target === paletteModal) {
-        paletteModal.style.display = "none";
-    }
-};
+document.getElementById("closeModal").onclick=()=>paletteModal.style.display="none";
 </script>
 
 </body>
