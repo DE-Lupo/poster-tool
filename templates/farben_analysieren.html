@@ -23,7 +23,6 @@ body {
     background: white;
     padding: 40px;
     border-radius: 20px;
-    border: 1px solid rgba(0,0,0,0.05);
 }
 
 h1 { margin-bottom: 10px; }
@@ -41,12 +40,10 @@ input[type="file"] { margin-top: 15px; }
     border-radius: 12px;
     border: 1px solid #ddd;
     background: #fafafa;
-    overflow: hidden;
 }
 
 #placeholder {
     color: #999;
-    font-size: 14px;
 }
 
 #preview {
@@ -58,9 +55,8 @@ input[type="file"] { margin-top: 15px; }
 button {
     margin-top: 25px;
     padding: 15px 25px;
-    font-size: 16px;
-    border: none;
     border-radius: 10px;
+    border: none;
     background: #6d28d9;
     color: white;
     cursor: pointer;
@@ -70,10 +66,9 @@ button:hover { background: #5b21b6; }
 
 button:disabled {
     background: #999;
-    cursor: not-allowed;
 }
 
-/* ===== POPUP ===== */
+/* POPUP */
 
 #paletteModal {
     display: none;
@@ -83,7 +78,6 @@ button:disabled {
     z-index: 9998;
     align-items: center;
     justify-content: center;
-    padding: 20px;
 }
 
 .modalBox {
@@ -91,9 +85,7 @@ button:disabled {
     border-radius: 20px;
     padding: 30px;
     max-width: 560px;
-    width: 100%;
-    max-height: 85vh;
-    overflow-y: auto;
+    width: 90%;
     position: relative;
 }
 
@@ -101,22 +93,15 @@ button:disabled {
     position: absolute;
     top: 12px;
     right: 14px;
-
     width: 36px;
     height: 36px;
-
     border-radius: 50%;
     border: none;
-
     font-size: 22px;
     font-weight: bold;
-    line-height: 36px;
-
     background: #6d28d9;
     color: white;
-
     cursor: pointer;
-
     display: flex;
     align-items: center;
     justify-content: center;
@@ -127,7 +112,7 @@ button:disabled {
 }
 
 #palette {
-    margin-top: 25px;
+    margin-top: 20px;
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
@@ -158,10 +143,7 @@ button:disabled {
     background: #1679D6;
     color: white;
     border: none;
-}
-
-.copyButton:hover {
-    background: #1264b0;
+    cursor: pointer;
 }
 
 /* Loader */
@@ -176,22 +158,13 @@ button:disabled {
     justify-content: center;
 }
 
-.loaderBox {
-    background: white;
-    padding: 35px;
-    border-radius: 20px;
-    width: 280px;
-    text-align: center;
-}
-
 .spinner {
-    width: 52px;
-    height: 52px;
+    width: 50px;
+    height: 50px;
     border: 6px solid #ddd;
     border-top: 6px solid #6d28d9;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin: 0 auto 20px;
 }
 
 @keyframes spin {
@@ -219,19 +192,15 @@ button:disabled {
 <!-- POPUP -->
 <div id="paletteModal">
     <div class="modalBox">
-        <button id="closeModal">×</button>
+        <button id="closeModal">&times;</button>
         <h2>Deine Farbpalette</h2>
-        <p>Die wichtigsten Farben aus deinem Bild:</p>
         <div id="palette"></div>
     </div>
 </div>
 
 <!-- LOADER -->
 <div id="loadingOverlay">
-    <div class="loaderBox">
-        <div class="spinner"></div>
-        <h3>Farben werden analysiert…</h3>
-    </div>
+    <div class="spinner"></div>
 </div>
 
 <script>
@@ -243,7 +212,6 @@ const analyzeButton = document.getElementById("analyzeButton");
 const palette = document.getElementById("palette");
 const paletteModal = document.getElementById("paletteModal");
 const closeModal = document.getElementById("closeModal");
-
 const loadingOverlay = document.getElementById("loadingOverlay");
 
 let loadedImage = null;
@@ -253,15 +221,9 @@ imageInput.addEventListener("change", function () {
 
     const file = this.files[0];
 
-    if (!file) {
-        preview.style.display = "none";
-        placeholder.style.display = "block";
-        analyzeButton.disabled = true;
-        return;
-    }
+    if (!file) return;
 
     const reader = new FileReader();
-
     reader.onload = function (event) {
         preview.src = event.target.result;
         preview.style.display = "block";
@@ -271,11 +233,10 @@ imageInput.addEventListener("change", function () {
         loadedImage = new Image();
         loadedImage.src = event.target.result;
     };
-
     reader.readAsDataURL(file);
 });
 
-analyzeButton.addEventListener("click", function () {
+analyzeButton.onclick = function () {
     loadingOverlay.style.display = "flex";
 
     setTimeout(function () {
@@ -284,20 +245,18 @@ analyzeButton.addEventListener("click", function () {
 
         loadingOverlay.style.display = "none";
         paletteModal.style.display = "flex";
-    }, 500);
-});
+    }, 400);
+};
 
 function extractColors(image, count) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
 
-    const size = 150;
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = 150;
+    canvas.height = 150;
+    ctx.drawImage(image, 0, 0, 150, 150);
 
-    ctx.drawImage(image, 0, 0, size, size);
-
-    const data = ctx.getImageData(0, 0, size, size).data;
+    const data = ctx.getImageData(0, 0, 150, 150).data;
     const map = {};
 
     for (let i = 0; i < data.length; i += 16) {
@@ -343,13 +302,34 @@ function displayColors(colors) {
         const btn = document.createElement("button");
         btn.className = "copyButton";
         btn.innerText = "Kopieren";
-        btn.onclick = () => navigator.clipboard.writeText(c.hex);
+
+        btn.onclick = function () {
+            copyText(c.hex);
+            btn.innerText = "Kopiert";
+            setTimeout(() => btn.innerText = "Kopieren", 1200);
+        };
 
         info.appendChild(btn);
         card.appendChild(box);
         card.appendChild(info);
         palette.appendChild(card);
     });
+}
+
+function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text);
+    } else {
+        const input = document.createElement("textarea");
+        input.value = text;
+        input.style.position = "fixed";
+        input.style.left = "-9999px";
+        document.body.appendChild(input);
+        input.focus();
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+    }
 }
 
 closeModal.onclick = () => paletteModal.style.display = "none";
