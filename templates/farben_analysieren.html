@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Farben analysieren</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #1679D6;
+    text-align: center;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 520px;
+    width: 100%;
+    min-height: 620px;
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+h1 { margin-bottom: 10px; }
+p { color: #555; }
+
+input[type="file"] { margin-top: 15px; }
+
+#previewBox {
+    margin: 20px auto 0;
+    width: 100%;
+    height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    background: #fafafa;
+    overflow: hidden;
+}
+
+#placeholder {
+    color: #999;
+    font-size: 14px;
+}
+
+#preview {
+    max-width: 100%;
+    max-height: 100%;
+    display: none;
+}
+
+button {
+    margin-top: 25px;
+    padding: 15px 25px;
+    font-size: 16px;
+    border: none;
+    border-radius: 10px;
+    background: #6d28d9;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover { background: #5b21b6; }
+
+button:disabled {
+    background: #999;
+    cursor: not-allowed;
+}
+
+#palette {
+    margin-top: 25px;
+    display: none;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.colorCard {
+    width: 120px;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.colorBox {
+    height: 70px;
+}
+
+.colorInfo {
+    padding: 10px;
+    font-size: 13px;
+    color: #444;
+}
+
+.copyButton {
+    margin-top: 8px;
+    padding: 7px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+    background: #1679D6;
+}
+
+.copyButton:hover {
+    background: #1264b0;
+}
+
+#doneMessage {
+    display: none;
+    margin-top: 18px;
+    color: #15803d;
+    font-weight: bold;
+}
+
+#loadingOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+
+.loaderBox {
+    background: white;
+    padding: 35px;
+    border-radius: 20px;
+    width: 280px;
+    text-align: center;
+}
+
+.spinner {
+    width: 52px;
+    height: 52px;
+    border: 6px solid #ddd;
+    border-top: 6px solid #6d28d9;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>Farben analysieren</h1>
+    <p>Lade ein Bild hoch und erkenne die wichtigsten Farben daraus.</p>
+
+    <input id="imageInput" type="file" accept="image/*">
+
+    <div id="previewBox">
+        <span id="placeholder">Noch kein Bild ausgewählt</span>
+        <img id="preview" alt="Bildvorschau">
+    </div>
+
+    <button id="analyzeButton" disabled>Farben analysieren</button>
+
+    <div id="doneMessage">
+        Farben wurden analysiert.
+    </div>
+
+    <div id="palette"></div>
+</div>
+
+<div id="loadingOverlay">
+    <div class="loaderBox">
+        <div class="spinner"></div>
+        <h3>Farben werden analysiert…</h3>
+        <p>Bitte kurz warten.</p>
+    </div>
+</div>
+
+<script>
+const imageInput = document.getElementById("imageInput");
+const preview = document.getElementById("preview");
+const placeholder = document.getElementById("placeholder");
+const analyzeButton = document.getElementById("analyzeButton");
+const palette = document.getElementById("palette");
+const doneMessage = document.getElementById("doneMessage");
+const loadingOverlay = document.getElementById("loadingOverlay");
+
+let loadedImage = null;
+
+imageInput.addEventListener("change", function () {
+    doneMessage.style.display = "none";
+    palette.style.display = "none";
+    palette.innerHTML = "";
+
+    const file = this.files[0];
+
+    if (!file) {
+        preview.style.display = "none";
+        placeholder.style.display = "block";
+        analyzeButton.disabled = true;
+        loadedImage = null;
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function (event) {
+        preview.src = event.target.result;
+        preview.style.display = "block";
+        placeholder.style.display = "none";
+        analyzeButton.disabled = false;
+
+        loadedImage = new Image();
+        loadedImage.src = event.target.result;
+    };
+
+    reader.readAsDataURL(file);
+});
+
+analyzeButton.addEventListener("click", function () {
+    if (!loadedImage) return;
+
+    loadingOverlay.style.display = "flex";
+    analyzeButton.disabled = true;
+    doneMessage.style.display = "none";
+
+    setTimeout(function () {
+        const colors = extractColors(loadedImage, 6);
+        displayColors(colors);
+
+        loadingOverlay.style.display = "none";
+        analyzeButton.disabled = false;
+        doneMessage.style.display = "block";
+    }, 500);
+});
+
+function extractColors(image, count) {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const maxSize = 180;
+    let width = image.width;
+    let height = image.height;
+
+    if (width > height) {
+        height = Math.round(height * (maxSize / width));
+        width = maxSize;
+    } else {
+        width = Math.round(width * (maxSize / height));
+        height = maxSize;
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(image, 0, 0, width, height);
+
+    const data = ctx.getImageData(0, 0, width, height).data;
+    const colorMap = {};
+
+    for (let i = 0; i < data.length; i += 16) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
+        let a = data[i + 3];
+
+        if (a < 128) continue;
+
+        r = Math.round(r / 24) * 24;
+        g = Math.round(g / 24) * 24;
+        b = Math.round(b / 24) * 24;
+
+        const key = r + "," + g + "," + b;
+        colorMap[key] = (colorMap[key] || 0) + 1;
+    }
+
+    return Object.entries(colorMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, count)
+        .map(entry => {
+            const rgb = entry[0].split(",").map(Number);
+            return {
+                r: rgb[0],
+                g: rgb[1],
+                b: rgb[2],
+                hex: rgbToHex(rgb[0], rgb[1], rgb[2])
+            };
+        });
+}
+
+function rgbToHex(r, g, b) {
+    return "#" + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+    }).join("").toUpperCase();
+}
+
+function displayColors(colors) {
+    palette.innerHTML = "";
+    palette.style.display = "flex";
+
+    colors.forEach(color => {
+        const card = document.createElement("div");
+        card.className = "colorCard";
+
+        const box = document.createElement("div");
+        box.className = "colorBox";
+        box.style.backgroundColor = color.hex;
+
+        const info = document.createElement("div");
+        info.className = "colorInfo";
+        info.innerHTML = `
+            <strong>${color.hex}</strong><br>
+            RGB ${color.r}, ${color.g}, ${color.b}
+        `;
+
+        const copy = document.createElement("button");
+        copy.className = "copyButton";
+        copy.innerText = "HEX kopieren";
+        copy.onclick = function () {
+            navigator.clipboard.writeText(color.hex);
+            copy.innerText = "Kopiert";
+            setTimeout(() => copy.innerText = "HEX kopieren", 1200);
+        };
+
+        info.appendChild(copy);
+        card.appendChild(box);
+        card.appendChild(info);
+        palette.appendChild(card);
+    });
+}
+</script>
+
+</body>
+</html>
