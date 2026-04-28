@@ -73,9 +73,49 @@ button:disabled {
     cursor: not-allowed;
 }
 
+/* ===== POPUP ===== */
+
+#paletteModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 9998;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modalBox {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 560px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+#closeModal {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 22px;
+    background: #eee;
+    cursor: pointer;
+}
+
+#closeModal:hover {
+    background: #ddd;
+}
+
 #palette {
     margin-top: 25px;
-    display: none;
+    display: flex;
     gap: 12px;
     flex-wrap: wrap;
     justify-content: center;
@@ -86,7 +126,6 @@ button:disabled {
     border: 1px solid #ddd;
     border-radius: 12px;
     overflow: hidden;
-    background: #fff;
 }
 
 .colorBox {
@@ -96,27 +135,23 @@ button:disabled {
 .colorInfo {
     padding: 10px;
     font-size: 13px;
-    color: #444;
 }
 
 .copyButton {
     margin-top: 8px;
-    padding: 7px 10px;
+    padding: 7px;
     font-size: 12px;
     border-radius: 8px;
     background: #1679D6;
+    color: white;
+    border: none;
 }
 
 .copyButton:hover {
     background: #1264b0;
 }
 
-#doneMessage {
-    display: none;
-    margin-top: 18px;
-    color: #15803d;
-    font-weight: bold;
-}
+/* Loader */
 
 #loadingOverlay {
     display: none;
@@ -162,23 +197,27 @@ button:disabled {
 
     <div id="previewBox">
         <span id="placeholder">Noch kein Bild ausgewählt</span>
-        <img id="preview" alt="Bildvorschau">
+        <img id="preview">
     </div>
 
     <button id="analyzeButton" disabled>Farben analysieren</button>
-
-    <div id="doneMessage">
-        Farben wurden analysiert.
-    </div>
-
-    <div id="palette"></div>
 </div>
 
+<!-- POPUP -->
+<div id="paletteModal">
+    <div class="modalBox">
+        <button id="closeModal">×</button>
+        <h2>Deine Farbpalette</h2>
+        <p>Die wichtigsten Farben aus deinem Bild:</p>
+        <div id="palette"></div>
+    </div>
+</div>
+
+<!-- LOADER -->
 <div id="loadingOverlay">
     <div class="loaderBox">
         <div class="spinner"></div>
         <h3>Farben werden analysiert…</h3>
-        <p>Bitte kurz warten.</p>
     </div>
 </div>
 
@@ -187,16 +226,17 @@ const imageInput = document.getElementById("imageInput");
 const preview = document.getElementById("preview");
 const placeholder = document.getElementById("placeholder");
 const analyzeButton = document.getElementById("analyzeButton");
+
 const palette = document.getElementById("palette");
-const doneMessage = document.getElementById("doneMessage");
+const paletteModal = document.getElementById("paletteModal");
+const closeModal = document.getElementById("closeModal");
+
 const loadingOverlay = document.getElementById("loadingOverlay");
 
 let loadedImage = null;
 
 imageInput.addEventListener("change", function () {
-    doneMessage.style.display = "none";
-    palette.style.display = "none";
-    palette.innerHTML = "";
+    paletteModal.style.display = "none";
 
     const file = this.files[0];
 
@@ -204,7 +244,6 @@ imageInput.addEventListener("change", function () {
         preview.style.display = "none";
         placeholder.style.display = "block";
         analyzeButton.disabled = true;
-        loadedImage = null;
         return;
     }
 
@@ -224,19 +263,14 @@ imageInput.addEventListener("change", function () {
 });
 
 analyzeButton.addEventListener("click", function () {
-    if (!loadedImage) return;
-
     loadingOverlay.style.display = "flex";
-    analyzeButton.disabled = true;
-    doneMessage.style.display = "none";
 
     setTimeout(function () {
         const colors = extractColors(loadedImage, 6);
         displayColors(colors);
 
         loadingOverlay.style.display = "none";
-        analyzeButton.disabled = false;
-        doneMessage.style.display = "block";
+        paletteModal.style.display = "flex";
     }, 500);
 });
 
@@ -244,96 +278,74 @@ function extractColors(image, count) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
 
-    const maxSize = 180;
-    let width = image.width;
-    let height = image.height;
+    const size = 150;
+    canvas.width = size;
+    canvas.height = size;
 
-    if (width > height) {
-        height = Math.round(height * (maxSize / width));
-        width = maxSize;
-    } else {
-        width = Math.round(width * (maxSize / height));
-        height = maxSize;
-    }
+    ctx.drawImage(image, 0, 0, size, size);
 
-    canvas.width = width;
-    canvas.height = height;
-    ctx.drawImage(image, 0, 0, width, height);
-
-    const data = ctx.getImageData(0, 0, width, height).data;
-    const colorMap = {};
+    const data = ctx.getImageData(0, 0, size, size).data;
+    const map = {};
 
     for (let i = 0; i < data.length; i += 16) {
-        let r = data[i];
-        let g = data[i + 1];
-        let b = data[i + 2];
-        let a = data[i + 3];
+        let r = Math.round(data[i] / 32) * 32;
+        let g = Math.round(data[i+1] / 32) * 32;
+        let b = Math.round(data[i+2] / 32) * 32;
 
-        if (a < 128) continue;
-
-        r = Math.round(r / 24) * 24;
-        g = Math.round(g / 24) * 24;
-        b = Math.round(b / 24) * 24;
-
-        const key = r + "," + g + "," + b;
-        colorMap[key] = (colorMap[key] || 0) + 1;
+        const key = `${r},${g},${b}`;
+        map[key] = (map[key] || 0) + 1;
     }
 
-    return Object.entries(colorMap)
-        .sort((a, b) => b[1] - a[1])
+    return Object.entries(map)
+        .sort((a,b) => b[1] - a[1])
         .slice(0, count)
-        .map(entry => {
-            const rgb = entry[0].split(",").map(Number);
-            return {
-                r: rgb[0],
-                g: rgb[1],
-                b: rgb[2],
-                hex: rgbToHex(rgb[0], rgb[1], rgb[2])
-            };
+        .map(e => {
+            const [r,g,b] = e[0].split(",").map(Number);
+            return { r,g,b, hex: rgbToHex(r,g,b) };
         });
 }
 
-function rgbToHex(r, g, b) {
-    return "#" + [r, g, b].map(x => {
-        const hex = x.toString(16);
-        return hex.length === 1 ? "0" + hex : hex;
+function rgbToHex(r,g,b) {
+    return "#" + [r,g,b].map(x => {
+        const h = x.toString(16);
+        return h.length === 1 ? "0"+h : h;
     }).join("").toUpperCase();
 }
 
 function displayColors(colors) {
     palette.innerHTML = "";
-    palette.style.display = "flex";
 
-    colors.forEach(color => {
+    colors.forEach(c => {
         const card = document.createElement("div");
         card.className = "colorCard";
 
         const box = document.createElement("div");
         box.className = "colorBox";
-        box.style.backgroundColor = color.hex;
+        box.style.background = c.hex;
 
         const info = document.createElement("div");
         info.className = "colorInfo";
-        info.innerHTML = `
-            <strong>${color.hex}</strong><br>
-            RGB ${color.r}, ${color.g}, ${color.b}
-        `;
+        info.innerHTML = `<strong>${c.hex}</strong><br>RGB ${c.r}, ${c.g}, ${c.b}`;
 
-        const copy = document.createElement("button");
-        copy.className = "copyButton";
-        copy.innerText = "HEX kopieren";
-        copy.onclick = function () {
-            navigator.clipboard.writeText(color.hex);
-            copy.innerText = "Kopiert";
-            setTimeout(() => copy.innerText = "HEX kopieren", 1200);
-        };
+        const btn = document.createElement("button");
+        btn.className = "copyButton";
+        btn.innerText = "Kopieren";
+        btn.onclick = () => navigator.clipboard.writeText(c.hex);
 
-        info.appendChild(copy);
+        info.appendChild(btn);
         card.appendChild(box);
         card.appendChild(info);
         palette.appendChild(card);
     });
 }
+
+closeModal.onclick = () => paletteModal.style.display = "none";
+
+paletteModal.onclick = (e) => {
+    if (e.target === paletteModal) {
+        paletteModal.style.display = "none";
+    }
+};
 </script>
 
 </body>
