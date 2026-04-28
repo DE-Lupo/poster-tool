@@ -142,6 +142,17 @@ button:disabled {
     margin: 0;
 }
 
+#printButton {
+    width: auto;
+    margin: 0 0 22px;
+    padding: 10px 18px;
+    font-size: 14px;
+    background: #1679D6;
+    border-radius: 10px;
+}
+
+#printButton:hover { background: #1264b0; }
+
 .mixNotice {
     background: #fef3c7;
     color: #78350f;
@@ -169,9 +180,7 @@ button:disabled {
     flex-direction: column;
 }
 
-.colorBox {
-    height: 78px;
-}
+.colorBox { height: 78px; }
 
 .colorInfo {
     padding: 12px;
@@ -183,9 +192,7 @@ button:disabled {
     flex: 1;
 }
 
-.colorLine {
-    white-space: nowrap;
-}
+.colorLine { white-space: nowrap; }
 
 .mixBox {
     margin-top: 10px;
@@ -216,9 +223,7 @@ button:disabled {
     background: #1679D6;
 }
 
-.copyButton:hover {
-    background: #1264b0;
-}
+.copyButton:hover { background: #1264b0; }
 
 #loadingOverlay {
     display: none;
@@ -248,23 +253,60 @@ button:disabled {
     margin: 0 auto 20px;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 600px) {
     body { padding: 16px; }
+    .container { padding: 28px 22px; }
+    .colorCard { width: 100%; }
+    .modalBox { padding: 24px; }
+}
 
-    .container {
-        padding: 28px 22px;
+@media print {
+    body {
+        background: white !important;
+        display: block !important;
+        padding: 0 !important;
     }
 
-    .colorCard {
-        width: 100%;
+    .container,
+    #loadingOverlay,
+    #closeModal,
+    #printButton,
+    .copyRow {
+        display: none !important;
+    }
+
+    #paletteModal {
+        display: block !important;
+        position: static !important;
+        background: white !important;
+        padding: 0 !important;
     }
 
     .modalBox {
-        padding: 24px;
+        max-width: none !important;
+        width: 100% !important;
+        max-height: none !important;
+        overflow: visible !important;
+        border-radius: 0 !important;
+        padding: 20px !important;
+        box-sizing: border-box;
+    }
+
+    #palette {
+        display: block !important;
+    }
+
+    .colorCard {
+        width: 100% !important;
+        margin-bottom: 14px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .mixBox {
+        min-height: auto !important;
     }
 }
 </style>
@@ -318,6 +360,8 @@ button:disabled {
             Bitte die Farbe schrittweise anmischen und bei Bedarf nachjustieren.
         </p>
 
+        <button id="printButton" type="button">Ergebnis drucken</button>
+
         <div id="palette"></div>
     </div>
 </div>
@@ -341,6 +385,7 @@ const palette = document.getElementById("palette");
 const paletteModal = document.getElementById("paletteModal");
 const closeModal = document.getElementById("closeModal");
 const loadingOverlay = document.getElementById("loadingOverlay");
+const printButton = document.getElementById("printButton");
 
 let loadedImage = null;
 
@@ -389,10 +434,6 @@ analyzeButton.addEventListener("click", function () {
         analyzeButton.disabled = false;
     }, 500);
 });
-
-/* =========================
-   FARBERKENNUNG: K-MEANS
-========================= */
 
 function extractColorsKMeans(img, count) {
     const canvas = document.createElement("canvas");
@@ -461,17 +502,10 @@ function extractColorsKMeans(img, count) {
         });
     }
 
-    const merged = mergeSimilarColors(centers)
+    return mergeSimilarColors(centers)
         .sort((a, b) => (b.count || 0) - (a.count || 0))
         .slice(0, count)
-        .map(c => ({
-            r: c.r,
-            g: c.g,
-            b: c.b,
-            hex: rgbToHex(c.r, c.g, c.b)
-        }));
-
-    return merged;
+        .map(c => ({ r: c.r, g: c.g, b: c.b, hex: rgbToHex(c.r, c.g, c.b) }));
 }
 
 function initializeCenters(pixels, count) {
@@ -483,16 +517,11 @@ function initializeCenters(pixels, count) {
         const b = Math.round(p.b / 32) * 32;
         const key = `${r},${g},${b}`;
 
-        if (!bins[key]) {
-            bins[key] = { r, g, b, count: 0 };
-        }
-
+        if (!bins[key]) bins[key] = { r, g, b, count: 0 };
         bins[key].count++;
     });
 
-    const sorted = Object.values(bins)
-        .sort((a, b) => b.count - a.count);
-
+    const sorted = Object.values(bins).sort((a, b) => b.count - a.count);
     const centers = [];
 
     sorted.forEach(color => {
@@ -511,11 +540,9 @@ function initializeCenters(pixels, count) {
 }
 
 function weightedRgbDistance(a, b) {
-    return (
-        0.30 * Math.pow(a.r - b.r, 2) +
-        0.59 * Math.pow(a.g - b.g, 2) +
-        0.11 * Math.pow(a.b - b.b, 2)
-    );
+    return 0.30 * Math.pow(a.r - b.r, 2) +
+           0.59 * Math.pow(a.g - b.g, 2) +
+           0.11 * Math.pow(a.b - b.b, 2);
 }
 
 function mergeSimilarColors(colors) {
@@ -545,14 +572,8 @@ function rgbToHex(r, g, b) {
     }).join("").toUpperCase();
 }
 
-/* =========================
-   LAB / DELTA-E FÜR RAL
-========================= */
-
 function rgbToLab(r, g, b) {
-    let rr = r / 255;
-    let gg = g / 255;
-    let bb = b / 255;
+    let rr = r / 255, gg = g / 255, bb = b / 255;
 
     rr = rr > 0.04045 ? Math.pow((rr + 0.055) / 1.055, 2.4) : rr / 12.92;
     gg = gg > 0.04045 ? Math.pow((gg + 0.055) / 1.055, 2.4) : gg / 12.92;
@@ -566,11 +587,7 @@ function rgbToLab(r, g, b) {
     y = y > 0.008856 ? Math.cbrt(y) : (7.787 * y) + 16 / 116;
     z = z > 0.008856 ? Math.cbrt(z) : (7.787 * z) + 16 / 116;
 
-    return {
-        l: (116 * y) - 16,
-        a: 500 * (x - y),
-        b: 200 * (y - z)
-    };
+    return { l: (116 * y) - 16, a: 500 * (x - y), b: 200 * (y - z) };
 }
 
 function deltaE(lab1, lab2) {
@@ -580,10 +597,6 @@ function deltaE(lab1, lab2) {
         Math.pow(lab1.b - lab2.b, 2)
     );
 }
-
-/* =========================
-   RAL-DATENBANK
-========================= */
 
 const ralColors = [
     { code: "1000", name: "Grünbeige", r: 205, g: 186, b: 136 },
@@ -651,19 +664,12 @@ function findNearestRal(r, g, b) {
     return best;
 }
 
-/* =========================
-   HSL + MISCHLOGIK
-========================= */
-
 function rgbToHsl(r, g, b) {
-    r /= 255;
-    g /= 255;
-    b /= 255;
+    r /= 255; g /= 255; b /= 255;
 
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
-    let h = 0;
-    let s = 0;
+    let h = 0, s = 0;
     const l = (max + min) / 2;
 
     if (max !== min) {
@@ -694,16 +700,9 @@ function getMixSuggestion(r, g, b, medium) {
         };
     }
 
-    if (medium === "aquarell") {
-        return convertToWatercolorMix(base);
-    }
+    if (medium === "aquarell") return convertToWatercolorMix(base);
 
-    return {
-        title: "Acryl-Mischung ca.",
-        lines: base.lines,
-        corrections: base.corrections,
-        tip: base.tip
-    };
+    return { title: "Acryl-Mischung ca.", lines: base.lines, corrections: base.corrections, tip: base.tip };
 }
 
 function getAdvancedBaseMix(r, g, b) {
@@ -711,7 +710,6 @@ function getAdvancedBaseMix(r, g, b) {
     const h = hsl.h;
     const s = hsl.s;
     const l = hsl.l;
-
     const brightness = (r + g + b) / 3;
     const warm = r >= b;
 
@@ -739,7 +737,6 @@ function getAdvancedBaseMix(r, g, b) {
                 tip: "Warme Grautöne entstehen durch Schwarz plus kleine Mengen Braun/Ocker."
             };
         }
-
         return {
             lines: ["5 Teile Titanweiß", "1 Teil Elfenbeinschwarz", "Spur Ultramarinblau"],
             corrections: ["zu blau → Spur Umbra", "zu dunkel → Weiß", "zu neutral → mehr Blau"],
@@ -803,7 +800,6 @@ function getAdvancedBaseMix(r, g, b) {
                 tip: "Natürliche Grüntöne brauchen fast immer Ocker oder Umbra."
             };
         }
-
         return {
             lines: ["2 Teile Kadmiumgelb", "2 Teile Ultramarinblau", "1 Teil Cyan", "Spur Titanweiß"],
             corrections: ["zu blau → Gelb", "zu gelb → Blau", "zu grell → Umbra"],
@@ -827,7 +823,6 @@ function getAdvancedBaseMix(r, g, b) {
                 tip: "Himmelblau immer sehr hell ansetzen und Blau sparsam dosieren."
             };
         }
-
         return {
             lines: ["4 Teile Ultramarinblau", "1 Teil Cyan", "1 Teil Titanweiß", "Spur Elfenbeinschwarz"],
             corrections: ["zu dunkel → Weiß", "zu violett → Cyan", "zu grell → Spur Schwarz oder Umbra"],
@@ -880,10 +875,6 @@ function convertToWatercolorMix(base) {
         tip: "Bei Aquarell wird vor allem mit Wasser, Lasuren und Papierweiß aufgehellt."
     };
 }
-
-/* =========================
-   AUSGABE
-========================= */
 
 function displayColors(colors, medium) {
     palette.innerHTML = "";
@@ -983,6 +974,10 @@ paletteModal.addEventListener("click", function (event) {
     if (event.target === paletteModal) {
         paletteModal.style.display = "none";
     }
+});
+
+printButton.addEventListener("click", function () {
+    window.print();
 });
 </script>
 
