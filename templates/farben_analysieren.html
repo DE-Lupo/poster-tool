@@ -24,11 +24,6 @@ body {
     text-align: center;
 }
 
-h1 { margin-bottom: 10px; }
-p { color: #555; }
-
-input[type="file"] { margin-top: 15px; }
-
 #previewBox {
     margin-top: 20px;
     height: 260px;
@@ -39,11 +34,6 @@ input[type="file"] { margin-top: 15px; }
     border-radius: 12px;
     background: #fafafa;
     overflow: hidden;
-}
-
-#placeholder {
-    color: #999;
-    font-size: 14px;
 }
 
 #preview {
@@ -62,8 +52,9 @@ button {
     cursor: pointer;
 }
 
-button:hover { background: #5b21b6; }
-button:disabled { background: #999; cursor: not-allowed; }
+button:disabled { background: #999; }
+
+/* Popup */
 
 #paletteModal {
     display: none;
@@ -73,7 +64,6 @@ button:disabled { background: #999; cursor: not-allowed; }
     z-index: 9998;
     align-items: center;
     justify-content: center;
-    padding: 20px;
 }
 
 .modalBox {
@@ -82,46 +72,41 @@ button:disabled { background: #999; cursor: not-allowed; }
     padding: 30px;
     width: 95%;
     max-width: 760px;
-    max-height: 88vh;
+    max-height: 90vh;
     overflow-y: auto;
     position: relative;
-    text-align: center;
 }
 
 #closeModal {
     position: absolute;
-    top: 12px;
-    right: 14px;
+    top: 10px;
+    right: 10px;
     width: 38px;
     height: 38px;
     border-radius: 50%;
     border: none;
     background: #6d28d9;
     color: white;
-    font-size: 24px;
-    font-weight: bold;
+    font-size: 22px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    margin: 0;
 }
+
+/* Hinweis */
 
 .mixNotice {
     background: #fef3c7;
-    color: #78350f;
-    padding: 12px 14px;
+    padding: 12px;
     border-radius: 12px;
     font-size: 13px;
-    line-height: 1.45;
-    margin: 12px 0 22px;
+    margin-bottom: 20px;
 }
+
+/* Palette */
 
 #palette {
     display: flex;
-    gap: 14px;
     flex-wrap: wrap;
+    gap: 14px;
     justify-content: center;
 }
 
@@ -131,10 +116,13 @@ button:disabled { background: #999; cursor: not-allowed; }
     border-radius: 14px;
     overflow: hidden;
     background: white;
+
+    display: flex;
+    flex-direction: column;
 }
 
 .colorBox {
-    height: 78px;
+    height: 70px;
 }
 
 .colorInfo {
@@ -142,11 +130,17 @@ button:disabled { background: #999; cursor: not-allowed; }
     font-size: 12px;
     line-height: 1.5;
     text-align: left;
+
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .colorLine {
     white-space: nowrap;
 }
+
+/* Mischbereich stabil */
 
 .mixBox {
     margin-top: 10px;
@@ -154,6 +148,7 @@ button:disabled { background: #999; cursor: not-allowed; }
     background: #f8fafc;
     border-radius: 10px;
     font-size: 12px;
+    min-height: 120px;
 }
 
 .mixTitle {
@@ -161,24 +156,26 @@ button:disabled { background: #999; cursor: not-allowed; }
     margin-bottom: 5px;
 }
 
+/* Buttons unten fix */
+
 .copyRow {
     display: flex;
     gap: 8px;
-    margin-top: 10px;
+    margin-top: auto;
 }
 
 .copyButton {
     flex: 1;
-    margin-top: 0;
     padding: 8px;
     font-size: 12px;
     border-radius: 8px;
     background: #1679D6;
+    color: white;
+    border: none;
+    cursor: pointer;
 }
 
-.copyButton:hover {
-    background: #1264b0;
-}
+/* Loader */
 
 #loadingOverlay {
     display: none;
@@ -190,41 +187,17 @@ button:disabled { background: #999; cursor: not-allowed; }
     justify-content: center;
 }
 
-.loaderBox {
-    background: white;
-    padding: 35px;
-    border-radius: 20px;
-    width: 280px;
-    text-align: center;
-}
-
 .spinner {
-    width: 52px;
-    height: 52px;
+    width: 50px;
+    height: 50px;
     border: 6px solid #ddd;
     border-top: 6px solid #6d28d9;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin: 0 auto 20px;
 }
 
 @keyframes spin {
     to { transform: rotate(360deg); }
-}
-
-@media (max-width: 600px) {
-    .container {
-        margin: 16px;
-        padding: 28px;
-    }
-
-    .colorCard {
-        width: 100%;
-    }
-
-    .modalBox {
-        padding: 24px;
-    }
 }
 </style>
 </head>
@@ -233,13 +206,10 @@ button:disabled { background: #999; cursor: not-allowed; }
 
 <div class="container">
     <h1>Farben analysieren</h1>
-    <p>Lade ein Bild hoch und erhalte Farbpalette, RAL-Näherung und Acryl-Mischvorschläge.</p>
-
     <input id="imageInput" type="file" accept="image/*">
 
     <div id="previewBox">
-        <span id="placeholder">Noch kein Bild ausgewählt</span>
-        <img id="preview" alt="Bildvorschau">
+        <img id="preview">
     </div>
 
     <button id="analyzeButton" disabled>Farben analysieren</button>
@@ -247,13 +217,11 @@ button:disabled { background: #999; cursor: not-allowed; }
 
 <div id="paletteModal">
     <div class="modalBox">
-        <button id="closeModal" type="button">&times;</button>
-        <h2>Deine Farbpalette</h2>
+        <button id="closeModal">&times;</button>
+        <h2>Farbpalette</h2>
 
         <p class="mixNotice">
-            Hinweis: Die RAL- und Mischangaben sind künstlerische Annäherungen.
-            Bildschirmfarben, Pigmente, Marken, Untergrund und Trocknung können das Ergebnis verändern.
-            Bitte die Farbe schrittweise anmischen und bei Bedarf nachjustieren.
+            Hinweis: Die Mischangaben sind Annäherungen. Farben können je nach Material und Licht abweichen.
         </p>
 
         <div id="palette"></div>
@@ -261,353 +229,144 @@ button:disabled { background: #999; cursor: not-allowed; }
 </div>
 
 <div id="loadingOverlay">
-    <div class="loaderBox">
-        <div class="spinner"></div>
-        <h3>Farben werden analysiert…</h3>
-        <p>Bitte kurz warten.</p>
-    </div>
+    <div class="spinner"></div>
 </div>
 
 <script>
 const imageInput = document.getElementById("imageInput");
 const preview = document.getElementById("preview");
-const placeholder = document.getElementById("placeholder");
 const analyzeButton = document.getElementById("analyzeButton");
 const palette = document.getElementById("palette");
 const paletteModal = document.getElementById("paletteModal");
-const closeModal = document.getElementById("closeModal");
-const loadingOverlay = document.getElementById("loadingOverlay");
 
-let loadedImage = null;
+let loadedImage;
 
-imageInput.addEventListener("change", function () {
-    paletteModal.style.display = "none";
-    palette.innerHTML = "";
-
-    const file = this.files[0];
-
-    if (!file) {
-        preview.style.display = "none";
-        placeholder.style.display = "block";
-        analyzeButton.disabled = true;
-        loadedImage = null;
-        return;
-    }
+imageInput.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
 
     const reader = new FileReader();
-
-    reader.onload = function (event) {
-        preview.src = event.target.result;
+    reader.onload = ev => {
+        preview.src = ev.target.result;
         preview.style.display = "block";
-        placeholder.style.display = "none";
         analyzeButton.disabled = false;
 
         loadedImage = new Image();
-        loadedImage.onload = function () {};
-        loadedImage.src = event.target.result;
+        loadedImage.src = ev.target.result;
     };
-
     reader.readAsDataURL(file);
-});
+};
 
-analyzeButton.addEventListener("click", function () {
-    if (!loadedImage) return;
+analyzeButton.onclick = () => {
+    document.getElementById("loadingOverlay").style.display = "flex";
 
-    loadingOverlay.style.display = "flex";
-    analyzeButton.disabled = true;
-
-    setTimeout(function () {
+    setTimeout(() => {
         const colors = extractColors(loadedImage, 6);
         displayColors(colors);
 
-        loadingOverlay.style.display = "none";
+        document.getElementById("loadingOverlay").style.display = "none";
         paletteModal.style.display = "flex";
-        analyzeButton.disabled = false;
-    }, 450);
-});
+    }, 400);
+};
 
 function extractColors(img, count) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
+    canvas.width = 150;
+    canvas.height = 150;
+    ctx.drawImage(img, 0, 0, 150, 150);
 
-    canvas.width = 180;
-    canvas.height = 180;
-    ctx.drawImage(img, 0, 0, 180, 180);
-
-    const data = ctx.getImageData(0, 0, 180, 180).data;
+    const data = ctx.getImageData(0,0,150,150).data;
     const map = {};
 
-    for (let i = 0; i < data.length; i += 16) {
-        const alpha = data[i + 3];
-        if (alpha < 128) continue;
-
-        let r = Math.round(data[i] / 24) * 24;
-        let g = Math.round(data[i + 1] / 24) * 24;
-        let b = Math.round(data[i + 2] / 24) * 24;
-
-        r = Math.min(255, r);
-        g = Math.min(255, g);
-        b = Math.min(255, b);
-
+    for (let i=0;i<data.length;i+=16){
+        let r = Math.round(data[i]/32)*32;
+        let g = Math.round(data[i+1]/32)*32;
+        let b = Math.round(data[i+2]/32)*32;
         const key = `${r},${g},${b}`;
-        map[key] = (map[key] || 0) + 1;
+        map[key] = (map[key]||0)+1;
     }
 
     return Object.entries(map)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, count)
-        .map(entry => {
-            const [r, g, b] = entry[0].split(",").map(Number);
-            return { r, g, b, hex: rgbToHex(r, g, b) };
+        .sort((a,b)=>b[1]-a[1])
+        .slice(0,count)
+        .map(e=>{
+            const [r,g,b]=e[0].split(",").map(Number);
+            return {r,g,b,hex:rgbToHex(r,g,b)};
         });
 }
 
-function rgbToHex(r, g, b) {
-    return "#" + [r, g, b].map(x => {
-        const hex = x.toString(16);
-        return hex.length === 1 ? "0" + hex : hex;
+function rgbToHex(r,g,b){
+    return "#"+[r,g,b].map(x=>{
+        const h=x.toString(16);
+        return h.length===1?"0"+h:h;
     }).join("").toUpperCase();
 }
 
-const ralColors = [
-    { code: "1000", name: "Grünbeige", r: 205, g: 186, b: 136 },
-    { code: "1001", name: "Beige", r: 208, g: 176, b: 132 },
-    { code: "1002", name: "Sandgelb", r: 210, g: 170, b: 109 },
-    { code: "1011", name: "Braunbeige", r: 175, g: 128, b: 79 },
-    { code: "1013", name: "Perlweiß", r: 234, g: 230, b: 202 },
-    { code: "1015", name: "Hellelfenbein", r: 230, g: 210, b: 181 },
-    { code: "1023", name: "Verkehrsgelb", r: 250, g: 210, b: 1 },
-    { code: "2000", name: "Gelborange", r: 237, g: 118, b: 14 },
-    { code: "2004", name: "Reinorange", r: 244, g: 70, b: 17 },
-    { code: "3000", name: "Feuerrot", r: 175, g: 43, b: 30 },
-    { code: "3002", name: "Karminrot", r: 162, g: 35, b: 29 },
-    { code: "3015", name: "Hellrosa", r: 216, g: 160, b: 166 },
-    { code: "4005", name: "Blaulila", r: 131, g: 96, b: 131 },
-    { code: "5002", name: "Ultramarinblau", r: 32, g: 33, b: 79 },
-    { code: "5010", name: "Enzianblau", r: 0, g: 79, b: 124 },
-    { code: "5015", name: "Himmelblau", r: 0, g: 124, b: 176 },
-    { code: "5024", name: "Pastellblau", r: 96, g: 147, b: 172 },
-    { code: "6001", name: "Smaragdgrün", r: 40, g: 114, b: 51 },
-    { code: "6018", name: "Gelbgrün", r: 97, g: 153, b: 59 },
-    { code: "6021", name: "Blassgrün", r: 137, g: 172, b: 118 },
-    { code: "7001", name: "Silbergrau", r: 140, g: 150, b: 157 },
-    { code: "7016", name: "Anthrazitgrau", r: 56, g: 62, b: 66 },
-    { code: "7035", name: "Lichtgrau", r: 197, g: 199, b: 196 },
-    { code: "8001", name: "Ockerbraun", r: 157, g: 98, b: 43 },
-    { code: "8011", name: "Nussbraun", r: 91, g: 58, b: 41 },
-    { code: "8017", name: "Schokoladenbraun", r: 69, g: 50, b: 46 },
-    { code: "9001", name: "Cremeweiß", r: 233, g: 224, b: 210 },
-    { code: "9005", name: "Tiefschwarz", r: 14, g: 14, b: 16 },
-    { code: "9010", name: "Reinweiß", r: 241, g: 236, b: 225 },
-    { code: "9016", name: "Verkehrsweiß", r: 246, g: 246, b: 241 }
-];
-
-function findNearestRal(r, g, b) {
-    let best = ralColors[0];
-    let bestDistance = Infinity;
-
-    ralColors.forEach(ral => {
-        const distance =
-            Math.pow(r - ral.r, 2) +
-            Math.pow(g - ral.g, 2) +
-            Math.pow(b - ral.b, 2);
-
-        if (distance < bestDistance) {
-            bestDistance = distance;
-            best = ral;
-        }
-    });
-
-    return best;
+/* einfache Mischlogik */
+function getMixSuggestion(r,g,b){
+    if(r>g && r>b) return ["Rot","Weiß","Gelb"];
+    if(g>r && g>b) return ["Gelb","Blau"];
+    if(b>r && b>g) return ["Blau","Weiß"];
+    return ["Weiß","Schwarz"];
 }
 
-function getMixSuggestion(r, g, b) {
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const brightness = (r + g + b) / 3;
-    const saturation = max - min;
+function displayColors(colors){
+    palette.innerHTML="";
 
-    if (brightness > 225 && saturation < 35) {
-        return {
-            lines: ["10 Teile Titanweiß", "1 Teil Ocker oder Beige", "Spur Gelb"],
-            tip: "Sehr vorsichtig tönen – helle Farben kippen schnell."
-        };
-    }
+    colors.forEach(c=>{
+        const mix = getMixSuggestion(c.r,c.g,c.b);
 
-    if (brightness < 45) {
-        return {
-            lines: ["8 Teile Elfenbeinschwarz", "1 Teil Ultramarinblau", "1 Teil Umbra gebrannt"],
-            tip: "Für Tiefe Schwarz nie allein verwenden, etwas Blau oder Umbra ergänzt es natürlicher."
-        };
-    }
+        const card=document.createElement("div");
+        card.className="colorCard";
 
-    if (saturation < 28) {
-        if (brightness > 150) {
-            return {
-                lines: ["6 Teile Titanweiß", "1 Teil Elfenbeinschwarz", "Spur Ocker"],
-                tip: "Für warme Grautöne etwas Ocker, für kühle Grautöne etwas Blau ergänzen."
-            };
-        }
-        return {
-            lines: ["3 Teile Titanweiß", "2 Teile Elfenbeinschwarz", "1 Teil Umbra gebrannt"],
-            tip: "Dunkles Grau langsam mit Weiß aufhellen."
-        };
-    }
-
-    if (r > g && r > b) {
-        if (g > 120 && b < 100) {
-            return {
-                lines: ["3 Teile Kadmiumrot", "2 Teile Kadmiumgelb", "1 Teil Titanweiß", "Spur Umbra"],
-                tip: "Für Orange/Terrakotta zuerst Rot und Gelb mischen, dann mit Weiß aufhellen."
-            };
-        }
-
-        if (b > 110) {
-            return {
-                lines: ["3 Teile Magenta", "1 Teil Ultramarinblau", "2 Teile Titanweiß"],
-                tip: "Für Rosa/Violett lieber Magenta statt klassischem Rot verwenden."
-            };
-        }
-
-        return {
-            lines: ["4 Teile Kadmiumrot", "1 Teil Magenta", "1 Teil Titanweiß", "Spur Umbra"],
-            tip: "Rot mit wenig Umbra abdunkeln, nicht zu viel Schwarz verwenden."
-        };
-    }
-
-    if (g > r && g > b) {
-        if (r > 120) {
-            return {
-                lines: ["3 Teile Kadmiumgelb", "2 Teile Ultramarinblau", "1 Teil Titanweiß", "Spur Ocker"],
-                tip: "Für natürliche Grüntöne etwas Ocker oder Umbra ergänzen."
-            };
-        }
-
-        return {
-            lines: ["2 Teile Ultramarinblau", "2 Teile Kadmiumgelb", "1 Teil Titanweiß"],
-            tip: "Mehr Gelb macht das Grün wärmer, mehr Blau macht es kühler."
-        };
-    }
-
-    if (b > r && b > g) {
-        if (g > 120) {
-            return {
-                lines: ["3 Teile Cyan", "1 Teil Ultramarinblau", "2 Teile Titanweiß"],
-                tip: "Für Himmelblau mit Weiß arbeiten und nur wenig dunkles Blau einsetzen."
-            };
-        }
-
-        return {
-            lines: ["4 Teile Ultramarinblau", "1 Teil Cyan", "1 Teil Titanweiß", "Spur Schwarz"],
-            tip: "Blau sehr langsam abdunkeln – Schwarz nur sparsam verwenden."
-        };
-    }
-
-    if (r > 100 && g > 70 && b < 90) {
-        return {
-            lines: ["3 Teile Lichter Ocker", "1 Teil Kadmiumrot", "1 Teil Titanweiß", "Spur Umbra"],
-            tip: "Für Beige/Braun erst hell starten, dann mit Umbra wärmer und dunkler machen."
-        };
-    }
-
-    return {
-        lines: ["3 Teile Titanweiß", "1 Teil Ocker", "1 Teil passende Grundfarbe", "Spur Schwarz oder Umbra"],
-        tip: "Schrittweise annähern: erst hell mischen, dann vorsichtig sättigen oder abdunkeln."
-    };
-}
-
-function displayColors(colors) {
-    palette.innerHTML = "";
-
-    colors.forEach(color => {
-        const ral = findNearestRal(color.r, color.g, color.b);
-        const mix = getMixSuggestion(color.r, color.g, color.b);
-        const mixText = mix.lines.join("\n");
-
-        const card = document.createElement("div");
-        card.className = "colorCard";
-
-        card.innerHTML = `
-            <div class="colorBox" style="background:${color.hex}"></div>
+        card.innerHTML=`
+            <div class="colorBox" style="background:${c.hex}"></div>
             <div class="colorInfo">
-                <div class="colorLine"><strong>${color.hex}</strong></div>
-                <div class="colorLine">RGB ${color.r}, ${color.g}, ${color.b}</div>
-                <div class="colorLine">RAL ca. ${ral.code} ${ral.name}</div>
+                <div class="colorLine"><strong>${c.hex}</strong></div>
+                <div class="colorLine">RGB ${c.r}, ${c.g}, ${c.b}</div>
 
                 <div class="mixBox">
                     <div class="mixTitle">Acryl-Mischung ca.</div>
-                    ${mix.lines.map(line => `<div>${line}</div>`).join("")}
-                    <div style="margin-top:7px;"><em>${mix.tip}</em></div>
+                    ${mix.map(m=>`<div>${m}</div>`).join("")}
                 </div>
 
                 <div class="copyRow">
-                    <button class="copyButton copyHex" type="button">HEX kopieren</button>
-                    <button class="copyButton copyMix" type="button">Mischung kopieren</button>
+                    <button class="copyButton copyHex">HEX kopieren</button>
+                    <button class="copyButton copyMix">Mischung kopieren</button>
                 </div>
             </div>
         `;
 
-        const hexButton = card.querySelector(".copyHex");
-        const mixButton = card.querySelector(".copyMix");
+        const hexBtn = card.querySelector(".copyHex");
+        const mixBtn = card.querySelector(".copyMix");
 
-        hexButton.addEventListener("click", function () {
-            copyText(color.hex);
-            hexButton.innerText = "Kopiert";
-            setTimeout(() => hexButton.innerText = "HEX kopieren", 1200);
-        });
+        hexBtn.onclick = ()=>{
+            copyText(c.hex);
+            hexBtn.innerText="Kopiert";
+            setTimeout(()=>hexBtn.innerText="HEX kopieren",1200);
+        };
 
-        mixButton.addEventListener("click", function () {
-            const fullMixText =
-`${color.hex}
-RGB ${color.r}, ${color.g}, ${color.b}
-RAL ca. ${ral.code} ${ral.name}
-
-Acryl-Mischung ca.:
-${mixText}
-
-Tipp: ${mix.tip}`;
-
-            copyText(fullMixText);
-            mixButton.innerText = "Kopiert";
-            setTimeout(() => mixButton.innerText = "Mischung kopieren", 1200);
-        });
+        mixBtn.onclick = ()=>{
+            copyText(mix.join(", "));
+            mixBtn.innerText="Kopiert";
+            setTimeout(()=>mixBtn.innerText="Mischung kopieren",1200);
+        };
 
         palette.appendChild(card);
     });
 }
 
-function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).catch(function () {
-            fallbackCopy(text);
-        });
-    } else {
-        fallbackCopy(text);
-    }
-}
-
-function fallbackCopy(text) {
-    const input = document.createElement("textarea");
-    input.value = text;
-    input.style.position = "fixed";
-    input.style.left = "-9999px";
-    input.style.top = "-9999px";
+function copyText(text){
+    const input=document.createElement("textarea");
+    input.value=text;
     document.body.appendChild(input);
-    input.focus();
     input.select();
     document.execCommand("copy");
     document.body.removeChild(input);
 }
 
-closeModal.addEventListener("click", function () {
-    paletteModal.style.display = "none";
-});
-
-paletteModal.addEventListener("click", function (event) {
-    if (event.target === paletteModal) {
-        paletteModal.style.display = "none";
-    }
-});
+document.getElementById("closeModal").onclick=()=>paletteModal.style.display="none";
 </script>
 
 </body>
