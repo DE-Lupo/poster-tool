@@ -24,9 +24,7 @@ body {
     text-align: center;
 }
 
-h1 {
-    margin: 0 0 24px;
-}
+h1 { margin: 0 0 24px; }
 
 .formGroup {
     width: 100%;
@@ -94,16 +92,12 @@ button {
     cursor: pointer;
 }
 
-button:hover {
-    background: #5b21b6;
-}
+button:hover { background: #5b21b6; }
 
 button:disabled {
     background: #999;
     cursor: not-allowed;
 }
-
-/* Popup */
 
 #paletteModal {
     display: none;
@@ -120,7 +114,7 @@ button:disabled {
     background: white;
     border-radius: 20px;
     padding: 30px;
-    max-width: 880px;
+    max-width: 900px;
     width: 95%;
     max-height: 88vh;
     overflow-y: auto;
@@ -166,7 +160,7 @@ button:disabled {
 }
 
 .colorCard {
-    width: 250px;
+    width: 255px;
     border: 1px solid #ddd;
     border-radius: 14px;
     overflow: hidden;
@@ -199,7 +193,7 @@ button:disabled {
     background: #f8fafc;
     border-radius: 10px;
     font-size: 12px;
-    min-height: 210px;
+    min-height: 230px;
 }
 
 .mixTitle {
@@ -225,8 +219,6 @@ button:disabled {
 .copyButton:hover {
     background: #1264b0;
 }
-
-/* Loader */
 
 #loadingOverlay {
     display: none;
@@ -261,9 +253,7 @@ button:disabled {
 }
 
 @media (max-width: 600px) {
-    body {
-        padding: 16px;
-    }
+    body { padding: 16px; }
 
     .container {
         padding: 28px 22px;
@@ -391,108 +381,305 @@ analyzeButton.addEventListener("click", function () {
 
     setTimeout(function () {
         const colorCount = parseInt(colorCountSelect.value, 10);
-        const colors = extractColors(loadedImage, colorCount);
+        const colors = extractColorsKMeans(loadedImage, colorCount);
         displayColors(colors, mediumSelect.value);
 
         loadingOverlay.style.display = "none";
         paletteModal.style.display = "flex";
         analyzeButton.disabled = false;
-    }, 450);
+    }, 500);
 });
 
-function extractColors(img, count) {
+/* =========================
+   FARBERKENNUNG: K-MEANS
+========================= */
+
+function extractColorsKMeans(img, count) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
 
-    canvas.width = 180;
-    canvas.height = 180;
-    ctx.drawImage(img, 0, 0, 180, 180);
+    const size = 220;
+    canvas.width = size;
+    canvas.height = size;
+    ctx.drawImage(img, 0, 0, size, size);
 
-    const data = ctx.getImageData(0, 0, 180, 180).data;
-    const map = {};
+    const data = ctx.getImageData(0, 0, size, size).data;
+    const pixels = [];
 
-    for (let i = 0; i < data.length; i += 16) {
-        const alpha = data[i + 3];
-        if (alpha < 128) continue;
+    for (let i = 0; i < data.length; i += 12) {
+        const a = data[i + 3];
+        if (a < 128) continue;
 
-        let r = Math.round(data[i] / 24) * 24;
-        let g = Math.round(data[i + 1] / 24) * 24;
-        let b = Math.round(data[i + 2] / 24) * 24;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
 
-        r = Math.min(255, r);
-        g = Math.min(255, g);
-        b = Math.min(255, b);
+        if (r > 248 && g > 248 && b > 248) continue;
 
-        const key = `${r},${g},${b}`;
-        map[key] = (map[key] || 0) + 1;
+        pixels.push({ r, g, b });
     }
 
-    return Object.entries(map)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, count)
-        .map(entry => {
-            const [r, g, b] = entry[0].split(",").map(Number);
-            return { r, g, b, hex: rgbToHex(r, g, b) };
+    if (pixels.length === 0) return [];
+
+    const centers = initializeCenters(pixels, count);
+
+    for (let iteration = 0; iteration < 12; iteration++) {
+        const groups = centers.map(() => []);
+
+        pixels.forEach(pixel => {
+            let bestIndex = 0;
+            let bestDistance = Infinity;
+
+            centers.forEach((center, index) => {
+                const d = weightedRgbDistance(pixel, center);
+                if (d < bestDistance) {
+                    bestDistance = d;
+                    bestIndex = index;
+                }
+            });
+
+            groups[bestIndex].push(pixel);
         });
+
+        groups.forEach((group, index) => {
+            if (group.length === 0) return;
+
+            let r = 0, g = 0, b = 0;
+
+            group.forEach(pixel => {
+                r += pixel.r;
+                g += pixel.g;
+                b += pixel.b;
+            });
+
+            centers[index] = {
+                r: Math.round(r / group.length),
+                g: Math.round(g / group.length),
+                b: Math.round(b / group.length),
+                count: group.length
+            };
+        });
+    }
+
+    const merged = mergeSimilarColors(centers)
+        .sort((a, b) => (b.count || 0) - (a.count || 0))
+        .slice(0, count)
+        .map(c => ({
+            r: c.r,
+            g: c.g,
+            b: c.b,
+            hex: rgbToHex(c.r, c.g, c.b)
+        }));
+
+    return merged;
+}
+
+function initializeCenters(pixels, count) {
+    const bins = {};
+
+    pixels.forEach(p => {
+        const r = Math.round(p.r / 32) * 32;
+        const g = Math.round(p.g / 32) * 32;
+        const b = Math.round(p.b / 32) * 32;
+        const key = `${r},${g},${b}`;
+
+        if (!bins[key]) {
+            bins[key] = { r, g, b, count: 0 };
+        }
+
+        bins[key].count++;
+    });
+
+    const sorted = Object.values(bins)
+        .sort((a, b) => b.count - a.count);
+
+    const centers = [];
+
+    sorted.forEach(color => {
+        const tooClose = centers.some(c => weightedRgbDistance(c, color) < 2200);
+        if (!tooClose && centers.length < count) {
+            centers.push({ r: color.r, g: color.g, b: color.b, count: color.count });
+        }
+    });
+
+    while (centers.length < count) {
+        const p = pixels[Math.floor((pixels.length - 1) * centers.length / Math.max(1, count - 1))];
+        centers.push({ r: p.r, g: p.g, b: p.b, count: 1 });
+    }
+
+    return centers;
+}
+
+function weightedRgbDistance(a, b) {
+    return (
+        0.30 * Math.pow(a.r - b.r, 2) +
+        0.59 * Math.pow(a.g - b.g, 2) +
+        0.11 * Math.pow(a.b - b.b, 2)
+    );
+}
+
+function mergeSimilarColors(colors) {
+    const result = [];
+
+    colors.forEach(color => {
+        const existing = result.find(c => deltaE(rgbToLab(c.r, c.g, c.b), rgbToLab(color.r, color.g, color.b)) < 7);
+
+        if (existing) {
+            const total = (existing.count || 1) + (color.count || 1);
+            existing.r = Math.round((existing.r * (existing.count || 1) + color.r * (color.count || 1)) / total);
+            existing.g = Math.round((existing.g * (existing.count || 1) + color.g * (color.count || 1)) / total);
+            existing.b = Math.round((existing.b * (existing.count || 1) + color.b * (color.count || 1)) / total);
+            existing.count = total;
+        } else {
+            result.push({ ...color });
+        }
+    });
+
+    return result;
 }
 
 function rgbToHex(r, g, b) {
     return "#" + [r, g, b].map(x => {
-        const hex = x.toString(16);
+        const hex = Math.round(x).toString(16);
         return hex.length === 1 ? "0" + hex : hex;
     }).join("").toUpperCase();
 }
+
+/* =========================
+   LAB / DELTA-E FÜR RAL
+========================= */
+
+function rgbToLab(r, g, b) {
+    let rr = r / 255;
+    let gg = g / 255;
+    let bb = b / 255;
+
+    rr = rr > 0.04045 ? Math.pow((rr + 0.055) / 1.055, 2.4) : rr / 12.92;
+    gg = gg > 0.04045 ? Math.pow((gg + 0.055) / 1.055, 2.4) : gg / 12.92;
+    bb = bb > 0.04045 ? Math.pow((bb + 0.055) / 1.055, 2.4) : bb / 12.92;
+
+    let x = (rr * 0.4124 + gg * 0.3576 + bb * 0.1805) / 0.95047;
+    let y = (rr * 0.2126 + gg * 0.7152 + bb * 0.0722) / 1.00000;
+    let z = (rr * 0.0193 + gg * 0.1192 + bb * 0.9505) / 1.08883;
+
+    x = x > 0.008856 ? Math.cbrt(x) : (7.787 * x) + 16 / 116;
+    y = y > 0.008856 ? Math.cbrt(y) : (7.787 * y) + 16 / 116;
+    z = z > 0.008856 ? Math.cbrt(z) : (7.787 * z) + 16 / 116;
+
+    return {
+        l: (116 * y) - 16,
+        a: 500 * (x - y),
+        b: 200 * (y - z)
+    };
+}
+
+function deltaE(lab1, lab2) {
+    return Math.sqrt(
+        Math.pow(lab1.l - lab2.l, 2) +
+        Math.pow(lab1.a - lab2.a, 2) +
+        Math.pow(lab1.b - lab2.b, 2)
+    );
+}
+
+/* =========================
+   RAL-DATENBANK
+========================= */
 
 const ralColors = [
     { code: "1000", name: "Grünbeige", r: 205, g: 186, b: 136 },
     { code: "1001", name: "Beige", r: 208, g: 176, b: 132 },
     { code: "1002", name: "Sandgelb", r: 210, g: 170, b: 109 },
+    { code: "1003", name: "Signalgelb", r: 249, g: 168, b: 0 },
+    { code: "1004", name: "Goldgelb", r: 228, g: 160, b: 16 },
     { code: "1011", name: "Braunbeige", r: 175, g: 128, b: 79 },
     { code: "1013", name: "Perlweiß", r: 234, g: 230, b: 202 },
     { code: "1015", name: "Hellelfenbein", r: 230, g: 210, b: 181 },
     { code: "1023", name: "Verkehrsgelb", r: 250, g: 210, b: 1 },
     { code: "2000", name: "Gelborange", r: 237, g: 118, b: 14 },
+    { code: "2001", name: "Rotorange", r: 201, g: 60, b: 32 },
     { code: "2004", name: "Reinorange", r: 244, g: 70, b: 17 },
     { code: "3000", name: "Feuerrot", r: 175, g: 43, b: 30 },
     { code: "3002", name: "Karminrot", r: 162, g: 35, b: 29 },
+    { code: "3003", name: "Rubinrot", r: 155, g: 17, b: 30 },
+    { code: "3012", name: "Beigerot", r: 198, g: 132, b: 109 },
     { code: "3015", name: "Hellrosa", r: 216, g: 160, b: 166 },
     { code: "4005", name: "Blaulila", r: 131, g: 96, b: 131 },
+    { code: "4006", name: "Verkehrspurpur", r: 160, g: 52, b: 114 },
     { code: "5002", name: "Ultramarinblau", r: 32, g: 33, b: 79 },
+    { code: "5005", name: "Signalblau", r: 0, g: 83, b: 135 },
     { code: "5010", name: "Enzianblau", r: 0, g: 79, b: 124 },
+    { code: "5012", name: "Lichtblau", r: 41, g: 115, b: 184 },
     { code: "5015", name: "Himmelblau", r: 0, g: 124, b: 176 },
     { code: "5024", name: "Pastellblau", r: 96, g: 147, b: 172 },
     { code: "6001", name: "Smaragdgrün", r: 40, g: 114, b: 51 },
+    { code: "6002", name: "Laubgrün", r: 45, g: 87, b: 44 },
+    { code: "6011", name: "Resedagrün", r: 104, g: 130, b: 92 },
     { code: "6018", name: "Gelbgrün", r: 97, g: 153, b: 59 },
     { code: "6021", name: "Blassgrün", r: 137, g: 172, b: 118 },
+    { code: "6027", name: "Lichtgrün", r: 125, g: 204, b: 189 },
     { code: "7001", name: "Silbergrau", r: 140, g: 150, b: 157 },
+    { code: "7012", name: "Basaltgrau", r: 87, g: 93, b: 94 },
     { code: "7016", name: "Anthrazitgrau", r: 56, g: 62, b: 66 },
+    { code: "7022", name: "Umbragrau", r: 76, g: 74, b: 68 },
     { code: "7035", name: "Lichtgrau", r: 197, g: 199, b: 196 },
+    { code: "7044", name: "Seidengrau", r: 183, g: 179, b: 168 },
     { code: "8001", name: "Ockerbraun", r: 157, g: 98, b: 43 },
+    { code: "8004", name: "Kupferbraun", r: 141, g: 73, b: 49 },
     { code: "8011", name: "Nussbraun", r: 91, g: 58, b: 41 },
     { code: "8017", name: "Schokoladenbraun", r: 69, g: 50, b: 46 },
+    { code: "8023", name: "Orangebraun", r: 166, g: 94, b: 46 },
     { code: "9001", name: "Cremeweiß", r: 233, g: 224, b: 210 },
+    { code: "9002", name: "Grauweiß", r: 215, g: 213, b: 203 },
     { code: "9005", name: "Tiefschwarz", r: 14, g: 14, b: 16 },
     { code: "9010", name: "Reinweiß", r: 241, g: 236, b: 225 },
     { code: "9016", name: "Verkehrsweiß", r: 246, g: 246, b: 241 }
 ];
 
 function findNearestRal(r, g, b) {
+    const target = rgbToLab(r, g, b);
     let best = ralColors[0];
     let bestDistance = Infinity;
 
     ralColors.forEach(ral => {
-        const distance =
-            Math.pow(r - ral.r, 2) +
-            Math.pow(g - ral.g, 2) +
-            Math.pow(b - ral.b, 2);
-
-        if (distance < bestDistance) {
-            bestDistance = distance;
+        const d = deltaE(target, rgbToLab(ral.r, ral.g, ral.b));
+        if (d < bestDistance) {
+            bestDistance = d;
             best = ral;
         }
     });
 
     return best;
+}
+
+/* =========================
+   HSL + MISCHLOGIK
+========================= */
+
+function rgbToHsl(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+        switch (max) {
+            case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+            case g: h = ((b - r) / d + 2); break;
+            case b: h = ((r - g) / d + 4); break;
+        }
+
+        h *= 60;
+    }
+
+    return { h, s, l };
 }
 
 function getMixSuggestion(r, g, b, medium) {
@@ -520,13 +707,15 @@ function getMixSuggestion(r, g, b, medium) {
 }
 
 function getAdvancedBaseMix(r, g, b) {
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const brightness = (r + g + b) / 3;
-    const saturation = max - min;
-    const isWarm = r >= b;
+    const hsl = rgbToHsl(r, g, b);
+    const h = hsl.h;
+    const s = hsl.s;
+    const l = hsl.l;
 
-    if (brightness > 230 && saturation < 30) {
+    const brightness = (r + g + b) / 3;
+    const warm = r >= b;
+
+    if (l > 0.88 && s < 0.18) {
         return {
             lines: ["10 Teile Titanweiß", "Spur Lichter Ocker", "Spur Gelb"],
             corrections: ["zu gelblich → mehr Weiß", "zu kalt → Spur Ocker", "zu dunkel → Weiß ergänzen"],
@@ -534,7 +723,7 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (brightness < 45) {
+    if (l < 0.18) {
         return {
             lines: ["6 Teile Elfenbeinschwarz", "1 Teil Umbra gebrannt", "1 Teil Ultramarinblau"],
             corrections: ["zu flach → etwas Blau oder Umbra", "zu hart → wenig Weiß", "zu braun → Ultramarinblau ergänzen"],
@@ -542,8 +731,8 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (saturation < 30) {
-        if (isWarm) {
+    if (s < 0.16) {
+        if (warm) {
             return {
                 lines: ["5 Teile Titanweiß", "1 Teil Elfenbeinschwarz", "Spur Umbra gebrannt", "Spur Lichter Ocker"],
                 corrections: ["zu warm → etwas Ultramarinblau", "zu kühl → Ocker oder Umbra", "zu dunkel → Weiß"],
@@ -558,7 +747,7 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (r > 150 && g > 105 && b > 70 && r > g && g > b) {
+    if (h >= 15 && h <= 45 && l > 0.45 && s < 0.55) {
         return {
             lines: ["5 Teile Titanweiß", "2 Teile Lichter Ocker", "1 Teil Kadmiumrot", "Spur Umbra gebrannt"],
             corrections: ["zu rosa → Ocker ergänzen", "zu gelb → Spur Rot oder Umbra", "zu dunkel → Weiß"],
@@ -566,7 +755,7 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (r > 120 && g > 65 && g < 150 && b < 90) {
+    if (h >= 10 && h <= 28 && l < 0.55) {
         return {
             lines: ["3 Teile Kadmiumrot", "2 Teile Lichter Ocker", "1 Teil Kadmiumgelb", "1 Teil Umbra gebrannt"],
             corrections: ["zu orange → Umbra ergänzen", "zu braun → Gelb oder Rot", "zu dunkel → Weiß"],
@@ -574,7 +763,7 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (r > 160 && g > 135 && b < 100) {
+    if (h >= 35 && h <= 60) {
         return {
             lines: ["4 Teile Kadmiumgelb", "2 Teile Lichter Ocker", "1 Teil Titanweiß", "Spur Umbra gebrannt"],
             corrections: ["zu grell → Ocker oder Umbra", "zu dunkel → Weiß", "zu grünlich → Spur Rot"],
@@ -582,7 +771,7 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (r > 170 && g > 80 && g < 170 && b < 80) {
+    if (h >= 5 && h < 35 && s > 0.45) {
         return {
             lines: ["3 Teile Kadmiumgelb", "2 Teile Kadmiumrot", "1 Teil Titanweiß", "Spur Lichter Ocker"],
             corrections: ["zu rot → Gelb", "zu gelb → Rot", "zu kräftig → Weiß oder Ocker"],
@@ -590,15 +779,7 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (r > g && r > b && saturation > 50) {
-        if (b > 100) {
-            return {
-                lines: ["3 Teile Magenta", "1 Teil Kadmiumrot", "1 Teil Titanweiß", "Spur Ultramarinblau"],
-                corrections: ["zu violett → mehr Rot", "zu knallig → Weiß oder Umbra", "zu dunkel → Weiß"],
-                tip: "Rosige Rottöne gelingen besser mit Magenta als mit reinem Rot."
-            };
-        }
-
+    if ((h >= 340 || h < 5) && s > 0.35) {
         return {
             lines: ["4 Teile Kadmiumrot", "1 Teil Magenta", "1 Teil Titanweiß", "Spur Umbra gebrannt"],
             corrections: ["zu hell → mehr Rot", "zu kalt → Spur Gelb", "zu leuchtend → Umbra"],
@@ -606,8 +787,16 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (g > r && g > b && saturation > 40) {
-        if (r > 110) {
+    if (h >= 280 && h < 340) {
+        return {
+            lines: ["3 Teile Magenta", "1 Teil Ultramarinblau", "2 Teile Titanweiß"],
+            corrections: ["zu violett → mehr Magenta", "zu pink → Ultramarinblau", "zu dunkel → Weiß"],
+            tip: "Violette und rosige Töne gelingen mit Magenta und Ultramarinblau besser."
+        };
+    }
+
+    if (h >= 75 && h < 165) {
+        if (s < 0.45 || l < 0.45) {
             return {
                 lines: ["3 Teile Kadmiumgelb", "2 Teile Ultramarinblau", "1 Teil Lichter Ocker", "Spur Umbra gebrannt"],
                 corrections: ["zu grell → Umbra", "zu dunkel → Gelb oder Weiß", "zu kalt → Ocker"],
@@ -622,7 +811,7 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (g > 120 && b > 120 && r < 120) {
+    if (h >= 165 && h < 200) {
         return {
             lines: ["3 Teile Cyan", "1 Teil Kadmiumgelb", "2 Teile Titanweiß", "Spur Ultramarinblau"],
             corrections: ["zu grün → Cyan oder Blau", "zu blau → Gelb", "zu kräftig → Weiß"],
@@ -630,15 +819,15 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (b > r && b > g && g > 110 && brightness > 120) {
-        return {
-            lines: ["5 Teile Titanweiß", "2 Teile Cyan", "1 Teil Ultramarinblau"],
-            corrections: ["zu dunkel → Weiß", "zu türkis → Ultramarinblau", "zu violett → Cyan"],
-            tip: "Himmelblau immer sehr hell ansetzen und Blau sparsam dosieren."
-        };
-    }
+    if (h >= 200 && h < 250) {
+        if (l > 0.45) {
+            return {
+                lines: ["5 Teile Titanweiß", "2 Teile Cyan", "1 Teil Ultramarinblau"],
+                corrections: ["zu dunkel → Weiß", "zu türkis → Ultramarinblau", "zu violett → Cyan"],
+                tip: "Himmelblau immer sehr hell ansetzen und Blau sparsam dosieren."
+            };
+        }
 
-    if (b > r && b > g) {
         return {
             lines: ["4 Teile Ultramarinblau", "1 Teil Cyan", "1 Teil Titanweiß", "Spur Elfenbeinschwarz"],
             corrections: ["zu dunkel → Weiß", "zu violett → Cyan", "zu grell → Spur Schwarz oder Umbra"],
@@ -646,7 +835,15 @@ function getAdvancedBaseMix(r, g, b) {
         };
     }
 
-    if (r > 80 && g > 50 && b < 80) {
+    if (h >= 250 && h < 280) {
+        return {
+            lines: ["3 Teile Ultramarinblau", "1 Teil Magenta", "2 Teile Titanweiß", "Spur Umbra"],
+            corrections: ["zu violett → Ultramarinblau", "zu blau → Magenta", "zu dunkel → Weiß"],
+            tip: "Für Blauviolett Magenta sehr vorsichtig dosieren."
+        };
+    }
+
+    if (brightness < 130 && r > g && g > b) {
         return {
             lines: ["3 Teile Umbra gebrannt", "2 Teile Lichter Ocker", "1 Teil Kadmiumrot", "Spur Titanweiß"],
             corrections: ["zu rot → Ocker oder Umbra", "zu gelb → Rot oder Umbra", "zu dunkel → Weiß"],
@@ -683,6 +880,10 @@ function convertToWatercolorMix(base) {
         tip: "Bei Aquarell wird vor allem mit Wasser, Lasuren und Papierweiß aufgehellt."
     };
 }
+
+/* =========================
+   AUSGABE
+========================= */
 
 function displayColors(colors, medium) {
     palette.innerHTML = "";
