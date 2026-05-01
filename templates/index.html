@@ -22,6 +22,7 @@ body {
     background: white;
     padding: 28px;
     border-radius: 20px;
+    border: 1px solid rgba(0,0,0,0.05);
 }
 
 h1 { margin: 0 0 8px; }
@@ -175,11 +176,25 @@ button:disabled {
 }
 
 @media (max-width: 520px) {
-    body { padding: 12px; }
-    .container { padding: 22px; }
-    .optionsGrid { grid-template-columns: 1fr; }
-    .optionFull { grid-column: auto; }
-    #previewBox { height: 200px; }
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 22px;
+    }
+
+    .optionsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .optionFull {
+        grid-column: auto;
+    }
+
+    #previewBox {
+        height: 200px;
+    }
 }
 </style>
 </head>
@@ -274,25 +289,25 @@ const compressionMessage = document.getElementById("compressionMessage");
 let submitted = false;
 
 /*
-Maximale Upload-Größen nach Komprimierung.
-Diese Werte liegen bewusst unter deiner kritischen Render-Grenze von ca. 9,5 MB.
+Strengere Upload-Grenzen nach der Komprimierung.
+A2 und A1 wurden reduziert, weil Render dort offenbar empfindlicher reagiert.
 */
 const maxUploadByFormat = {
     A4: 8 * 1024 * 1024,
-    A3: 6 * 1024 * 1024,
-    A2: 4 * 1024 * 1024,
-    A1: 3 * 1024 * 1024
+    A3: 5 * 1024 * 1024,
+    A2: 2.5 * 1024 * 1024,
+    A1: 1.8 * 1024 * 1024
 };
 
 /*
-Komprimierung je Posterformat.
-A1 wird stärker verkleinert, weil dort die PDF-Ausgabe am größten wird.
+Stärkere Komprimierung je Posterformat.
+A2 und A1 werden stärker verkleinert.
 */
 const compressionByFormat = {
     A4: { maxWidth: 2400, quality: 0.82 },
-    A3: { maxWidth: 2200, quality: 0.80 },
-    A2: { maxWidth: 2000, quality: 0.78 },
-    A1: { maxWidth: 1800, quality: 0.75 }
+    A3: { maxWidth: 2200, quality: 0.78 },
+    A2: { maxWidth: 1600, quality: 0.68 },
+    A1: { maxWidth: 1400, quality: 0.62 }
 };
 
 function formatBytes(bytes) {
@@ -449,10 +464,6 @@ imageInput.addEventListener("change", async function () {
     try {
         const compressedFile = await compressImage(file);
 
-        /*
-        Falls die Komprimierung ausnahmsweise größer wird,
-        behalten wir die kleinere Variante.
-        */
         if (compressedFile.size < originalSize) {
             file = compressedFile;
             replaceFileInput(file);
