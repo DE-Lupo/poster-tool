@@ -61,13 +61,10 @@ def mm_to_pt(mm):
 def compute_grid(n):
     if n == 1:
         return 1, 1
-
     if n == 2:
         return 2, 1
-
     if n == 4:
         return 2, 2
-
     if n == 8:
         return 4, 2
 
@@ -165,8 +162,20 @@ def draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h):
     pdf.showPage()
 
 
-def prepare_poster_image(img, cols, rows, margin_mm, overlap_mm):
-    page_px_w = 1200
+def prepare_poster_image(img, cols, rows, margin_mm, overlap_mm, fmt):
+    """
+    Erstellt das Gesamtposter in einer kontrollierten Pixelgröße.
+    Wichtig: A2/A1 werden bewusst kleiner gerechnet, damit ReportLab/Render nicht abstürzt.
+    """
+
+    page_px_by_format = {
+        "A4": 1100,
+        "A3": 950,
+        "A2": 720,
+        "A1": 600,
+    }
+
+    page_px_w = page_px_by_format.get(fmt, 800)
     page_px_h = int(page_px_w * (A4[1] / A4[0]))
 
     margin_pt = mm_to_pt(margin_mm)
@@ -204,6 +213,37 @@ def prepare_poster_image(img, cols, rows, margin_mm, overlap_mm):
     poster = resized.crop((left, top, left + poster_w, top + poster_h))
 
     return poster, usable_px_w, usable_px_h, step_x, step_y, margin_pt, overlap_pt, usable_pt_w, usable_pt_h
+
+
+def tile_to_jpeg_reader(tile, fmt):
+    """
+    Wandelt jedes einzelne Poster-Kachelbild in ein komprimiertes JPEG um,
+    bevor es an ReportLab übergeben wird.
+    Das verhindert die starke Speicher-/PDF-Aufblähung durch rohe PIL-Bilddaten.
+    """
+
+    quality_by_format = {
+        "A4": 75,
+        "A3": 68,
+        "A2": 55,
+        "A1": 45,
+    }
+
+    quality = quality_by_format.get(fmt, 60)
+
+    tile = tile.convert("RGB")
+
+    tile_buffer = io.BytesIO()
+    tile.save(
+        tile_buffer,
+        format="JPEG",
+        quality=quality,
+        optimize=True,
+        progressive=True
+    )
+    tile_buffer.seek(0)
+
+    return ImageReader(tile_buffer)
 
 
 def draw_image_border(pdf, margin, usable_w, usable_h):
@@ -288,7 +328,7 @@ def create_pdf():
         overlap,
         usable_w,
         usable_h
-    ) = prepare_poster_image(img, cols, rows, margin_mm, overlap_mm)
+    ) = prepare_poster_image(img, cols, rows, margin_mm, overlap_mm, fmt)
 
     page_w, page_h = A4
 
@@ -308,8 +348,10 @@ def create_pdf():
 
             tile = poster_img.crop((left, top, right, bottom))
 
+            tile_reader = tile_to_jpeg_reader(tile, fmt)
+
             pdf.drawImage(
-                ImageReader(tile),
+                tile_reader,
                 margin,
                 margin,
                 width=usable_w,
