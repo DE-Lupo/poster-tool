@@ -163,11 +163,6 @@ def draw_overview_page(pdf, fmt, rows, cols, total_pages, page_w, page_h):
 
 
 def prepare_poster_image(img, cols, rows, margin_mm, overlap_mm, fmt):
-    """
-    Erstellt das Gesamtposter in einer kontrollierten Pixelgröße.
-    Wichtig: A2/A1 werden bewusst kleiner gerechnet, damit ReportLab/Render nicht abstürzt.
-    """
-
     page_px_by_format = {
         "A4": 1100,
         "A3": 950,
@@ -216,12 +211,6 @@ def prepare_poster_image(img, cols, rows, margin_mm, overlap_mm, fmt):
 
 
 def tile_to_jpeg_reader(tile, fmt):
-    """
-    Wandelt jedes einzelne Poster-Kachelbild in ein komprimiertes JPEG um,
-    bevor es an ReportLab übergeben wird.
-    Das verhindert die starke Speicher-/PDF-Aufblähung durch rohe PIL-Bilddaten.
-    """
-
     quality_by_format = {
         "A4": 75,
         "A3": 68,
@@ -347,7 +336,6 @@ def create_pdf():
             bottom = top + tile_px_h
 
             tile = poster_img.crop((left, top, right, bottom))
-
             tile_reader = tile_to_jpeg_reader(tile, fmt)
 
             pdf.drawImage(
@@ -370,16 +358,18 @@ def create_pdf():
             page_number += 1
 
     pdf.save()
- pdf_bytes = buffer.getvalue()
-buffer.close()
 
-return send_file(
-    io.BytesIO(pdf_bytes),
-    as_attachment=True,
-    download_name=f"poster_{fmt}_katicas_galerie.pdf",
-    mimetype="application/pdf",
-    max_age=0
-)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        as_attachment=True,
+        download_name=f"poster_{fmt}_katicas_galerie.pdf",
+        mimetype="application/pdf",
+        max_age=0
+    )
+
 
 @app.route("/create-raster-kontur", methods=["POST"])
 def create_raster_kontur():
