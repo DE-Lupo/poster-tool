@@ -209,7 +209,7 @@ button:disabled {
         <input id="imageInput" type="file" name="image" accept="image/*" required>
 
         <p class="uploadHint">
-            Bilder werden automatisch komprimiert. Je größer das Posterformat, desto kleiner sollte die Bilddatei sein.
+            Bilder werden automatisch passend zum gewählten Posterformat optimiert.
         </p>
 
         <div id="errorMessage"></div>
@@ -287,27 +287,28 @@ const errorMessage = document.getElementById("errorMessage");
 const compressionMessage = document.getElementById("compressionMessage");
 
 let submitted = false;
+let originalUploadedFile = null;
 
 /*
-Strengere Upload-Grenzen nach der Komprimierung.
-A2 und A1 wurden reduziert, weil Render dort offenbar empfindlicher reagiert.
+Strenge Upload-Grenzen nach der Komprimierung.
+A2/A1 sind bewusst deutlich kleiner, weil dort die PDF-Ausgabe stark wächst.
 */
 const maxUploadByFormat = {
-    A4: 8 * 1024 * 1024,
-    A3: 5 * 1024 * 1024,
-    A2: 2.5 * 1024 * 1024,
-    A1: 1.8 * 1024 * 1024
+    A4: 6 * 1024 * 1024,
+    A3: 3 * 1024 * 1024,
+    A2: 1.2 * 1024 * 1024,
+    A1: 0.8 * 1024 * 1024
 };
 
 /*
 Stärkere Komprimierung je Posterformat.
-A2 und A1 werden stärker verkleinert.
+A2/A1 werden bewusst stärker reduziert.
 */
 const compressionByFormat = {
-    A4: { maxWidth: 2400, quality: 0.82 },
-    A3: { maxWidth: 2200, quality: 0.78 },
-    A2: { maxWidth: 1600, quality: 0.68 },
-    A1: { maxWidth: 1400, quality: 0.62 }
+    A4: { maxWidth: 2200, quality: 0.78 },
+    A3: { maxWidth: 1800, quality: 0.68 },
+    A2: { maxWidth: 1200, quality: 0.52 },
+    A1: { maxWidth: 1000, quality: 0.45 }
 };
 
 function formatBytes(bytes) {
@@ -334,6 +335,12 @@ function hideCompressionMessage() {
     compressionMessage.style.display = "none";
 }
 
+function updatePageInfo() {
+    const pages = formatSelect.options[formatSelect.selectedIndex].dataset.pages;
+    const word = pages === "1" ? "A4-Seite" : "A4-Seiten";
+    pageInfo.innerText = "Dein Poster wird aus " + pages + " " + word + " bestehen.";
+}
+
 function validateUploadSize() {
     const file = imageInput.files[0];
     const format = formatSelect.value;
@@ -347,10 +354,10 @@ function validateUploadSize() {
 
     if (file.size > maxSize) {
         showError(
-            "❌ Die Datei ist trotz Komprimierung für " + format + " noch zu groß.<br>" +
-            "Aktuelle Datei: " + formatBytes(file.size) + "<br>" +
+            "❌ Die Datei ist für " + format + " noch zu groß.<br>" +
+            "Aktuelle Datei nach Optimierung: " + formatBytes(file.size) + "<br>" +
             "Erlaubt für " + format + ": maximal " + formatBytes(maxSize) + "<br><br>" +
-            "Bitte nutze ein kleineres Bild oder wähle ein kleineres Posterformat."
+            "Bitte wähle ein kleineres Posterformat oder nutze ein einfacheres/kleineres Bild."
         );
 
         submitButton.disabled = true;
@@ -402,7 +409,7 @@ function compressImage(file) {
 
                     const compressedFile = new File(
                         [blob],
-                        file.name.replace(/\.[^/.]+$/, "") + "-komprimiert.jpg",
+                        file.name.replace(/\.[^/.]+$/, "") + "-" + format.toLowerCase() + "-optimiert.jpg",
                         {
                             type: "image/jpeg",
                             lastModified: Date.now()
@@ -442,44 +449,25 @@ function updatePreview(file) {
     reader.readAsDataURL(file);
 }
 
-imageInput.addEventListener("change", async function () {
-    doneMessage.style.display = "none";
+async function processSelectedImage(file) {
     hideError();
     hideCompressionMessage();
-
-    let file = this.files[0];
-
-    if (!file) {
-        preview.style.display = "none";
-        placeholder.style.display = "block";
-        submitButton.disabled = false;
-        return;
-    }
 
     submitButton.disabled = true;
     submitButton.innerText = "Bild wird optimiert...";
 
-    const originalSize = file.size;
-
     try {
+        const originalSize = file.size;
         const compressedFile = await compressImage(file);
 
-        if (compressedFile.size < originalSize) {
-            file = compressedFile;
-            replaceFileInput(file);
+        replaceFileInput(compressedFile);
+        updatePreview(compressedFile);
 
-            showCompressionMessage(
-                "✅ Bild wurde automatisch optimiert:<br>" +
-                "Vorher: " + formatBytes(originalSize) + " · Jetzt: " + formatBytes(file.size)
-            );
-        } else {
-            showCompressionMessage(
-                "ℹ️ Das Bild war bereits gut optimiert:<br>" +
-                "Dateigröße: " + formatBytes(originalSize)
-            );
-        }
+        showCompressionMessage(
+            "✅ Bild wurde für " + formatSelect.value + " optimiert:<br>" +
+            "Original: " + formatBytes(originalSize) + " · Optimiert: " + formatBytes(compressedFile.size)
+        );
 
-        updatePreview(file);
         validateUploadSize();
 
     } catch (error) {
@@ -490,17 +478,36 @@ imageInput.addEventListener("change", async function () {
     }
 
     submitButton.innerText = "PDF erstellen";
+}
+
+imageInput.addEventListener("change", async function () {
+    doneMessage.style.display = "none";
+
+    const file = this.files[0];
+
+    if (!file) {
+        originalUploadedFile = null;
+        preview.style.display = "none";
+        placeholder.style.display = "block";
+        hideError();
+        hideCompressionMessage();
+        submitButton.disabled = false;
+        return;
+    }
+
+    originalUploadedFile = file;
+    await processSelectedImage(originalUploadedFile);
 });
 
 formatSelect.addEventListener("change", async function () {
     doneMessage.style.display = "none";
-    hideCompressionMessage();
+    updatePageInfo();
 
-    const pages = this.options[this.selectedIndex].dataset.pages;
-    const word = pages === "1" ? "A4-Seite" : "A4-Seiten";
-    pageInfo.innerText = "Dein Poster wird aus " + pages + " " + word + " bestehen.";
-
-    validateUploadSize();
+    if (originalUploadedFile) {
+        await processSelectedImage(originalUploadedFile);
+    } else {
+        validateUploadSize();
+    }
 });
 
 form.addEventListener("submit", function (event) {
@@ -535,6 +542,8 @@ setInterval(function () {
         submitted = false;
     }
 }, 12000);
+
+updatePageInfo();
 </script>
 
 </body>
