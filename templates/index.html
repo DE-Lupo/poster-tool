@@ -22,7 +22,6 @@ body {
     background: white;
     padding: 28px;
     border-radius: 20px;
-    border: 1px solid rgba(0,0,0,0.05);
 }
 
 h1 { margin: 0 0 8px; }
@@ -31,6 +30,30 @@ p { color: #555; margin: 0 0 14px; }
 input[type="file"] {
     margin-top: 8px;
     max-width: 100%;
+}
+
+.uploadHint {
+    font-size: 13px;
+    color: #777;
+    margin-top: 8px;
+}
+
+#errorMessage {
+    display: none;
+    margin-top: 10px;
+    color: #b91c1c;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1.4;
+}
+
+#compressionMessage {
+    display: none;
+    margin-top: 10px;
+    color: #15803d;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1.4;
 }
 
 #previewBox {
@@ -152,25 +175,11 @@ button:disabled {
 }
 
 @media (max-width: 520px) {
-    body {
-        padding: 12px;
-    }
-
-    .container {
-        padding: 22px;
-    }
-
-    .optionsGrid {
-        grid-template-columns: 1fr;
-    }
-
-    .optionFull {
-        grid-column: auto;
-    }
-
-    #previewBox {
-        height: 200px;
-    }
+    body { padding: 12px; }
+    .container { padding: 22px; }
+    .optionsGrid { grid-template-columns: 1fr; }
+    .optionFull { grid-column: auto; }
+    #previewBox { height: 200px; }
 }
 </style>
 </head>
@@ -183,6 +192,13 @@ button:disabled {
 
     <form id="form" action="/create-pdf" method="post" enctype="multipart/form-data" target="downloadFrame">
         <input id="imageInput" type="file" name="image" accept="image/*" required>
+
+        <p class="uploadHint">
+            Bilder werden automatisch komprimiert. Je größer das Posterformat, desto kleiner sollte die Bilddatei sein.
+        </p>
+
+        <div id="errorMessage"></div>
+        <div id="compressionMessage"></div>
 
         <div id="previewBox">
             <span id="placeholder">Noch kein Bild ausgewählt</span>
@@ -252,40 +268,236 @@ const formatSelect = document.getElementById("formatSelect");
 const pageInfo = document.getElementById("pageInfo");
 const doneMessage = document.getElementById("doneMessage");
 const downloadFrame = document.getElementById("downloadFrame");
+const errorMessage = document.getElementById("errorMessage");
+const compressionMessage = document.getElementById("compressionMessage");
 
 let submitted = false;
 
-imageInput.addEventListener("change", function () {
-    doneMessage.style.display = "none";
+/*
+Maximale Upload-Größen nach Komprimierung.
+Diese Werte liegen bewusst unter deiner kritischen Render-Grenze von ca. 9,5 MB.
+*/
+const maxUploadByFormat = {
+    A4: 8 * 1024 * 1024,
+    A3: 6 * 1024 * 1024,
+    A2: 4 * 1024 * 1024,
+    A1: 3 * 1024 * 1024
+};
 
-    const file = this.files[0];
+/*
+Komprimierung je Posterformat.
+A1 wird stärker verkleinert, weil dort die PDF-Ausgabe am größten wird.
+*/
+const compressionByFormat = {
+    A4: { maxWidth: 2400, quality: 0.82 },
+    A3: { maxWidth: 2200, quality: 0.80 },
+    A2: { maxWidth: 2000, quality: 0.78 },
+    A1: { maxWidth: 1800, quality: 0.75 }
+};
+
+function formatBytes(bytes) {
+    return (bytes / 1024 / 1024).toFixed(1).replace(".", ",") + " MB";
+}
+
+function showError(message) {
+    errorMessage.innerHTML = message;
+    errorMessage.style.display = "block";
+}
+
+function hideError() {
+    errorMessage.innerHTML = "";
+    errorMessage.style.display = "none";
+}
+
+function showCompressionMessage(message) {
+    compressionMessage.innerHTML = message;
+    compressionMessage.style.display = "block";
+}
+
+function hideCompressionMessage() {
+    compressionMessage.innerHTML = "";
+    compressionMessage.style.display = "none";
+}
+
+function validateUploadSize() {
+    const file = imageInput.files[0];
+    const format = formatSelect.value;
+    const maxSize = maxUploadByFormat[format];
 
     if (!file) {
-        preview.style.display = "none";
-        placeholder.style.display = "block";
-        return;
+        hideError();
+        submitButton.disabled = false;
+        return true;
     }
 
+    if (file.size > maxSize) {
+        showError(
+            "❌ Die Datei ist trotz Komprimierung für " + format + " noch zu groß.<br>" +
+            "Aktuelle Datei: " + formatBytes(file.size) + "<br>" +
+            "Erlaubt für " + format + ": maximal " + formatBytes(maxSize) + "<br><br>" +
+            "Bitte nutze ein kleineres Bild oder wähle ein kleineres Posterformat."
+        );
+
+        submitButton.disabled = true;
+        return false;
+    }
+
+    hideError();
+    submitButton.disabled = false;
+    return true;
+}
+
+function compressImage(file) {
+    return new Promise((resolve, reject) => {
+        const format = formatSelect.value;
+        const settings = compressionByFormat[format];
+        const reader = new FileReader();
+        const img = new Image();
+
+        reader.onload = function(event) {
+            img.src = event.target.result;
+        };
+
+        reader.onerror = function() {
+            reject("Das Bild konnte nicht gelesen werden.");
+        };
+
+        img.onload = function() {
+            let width = img.width;
+            let height = img.height;
+
+            if (width > settings.maxWidth) {
+                height = Math.round(height * (settings.maxWidth / width));
+                width = settings.maxWidth;
+            }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob(
+                function(blob) {
+                    if (!blob) {
+                        reject("Das Bild konnte nicht komprimiert werden.");
+                        return;
+                    }
+
+                    const compressedFile = new File(
+                        [blob],
+                        file.name.replace(/\.[^/.]+$/, "") + "-komprimiert.jpg",
+                        {
+                            type: "image/jpeg",
+                            lastModified: Date.now()
+                        }
+                    );
+
+                    resolve(compressedFile);
+                },
+                "image/jpeg",
+                settings.quality
+            );
+        };
+
+        img.onerror = function() {
+            reject("Das Bildformat konnte nicht verarbeitet werden.");
+        };
+
+        reader.readAsDataURL(file);
+    });
+}
+
+function replaceFileInput(file) {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    imageInput.files = dataTransfer.files;
+}
+
+function updatePreview(file) {
     const reader = new FileReader();
 
-    reader.onload = function (event) {
+    reader.onload = function(event) {
         preview.src = event.target.result;
         preview.style.display = "block";
         placeholder.style.display = "none";
     };
 
     reader.readAsDataURL(file);
+}
+
+imageInput.addEventListener("change", async function () {
+    doneMessage.style.display = "none";
+    hideError();
+    hideCompressionMessage();
+
+    let file = this.files[0];
+
+    if (!file) {
+        preview.style.display = "none";
+        placeholder.style.display = "block";
+        submitButton.disabled = false;
+        return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.innerText = "Bild wird optimiert...";
+
+    const originalSize = file.size;
+
+    try {
+        const compressedFile = await compressImage(file);
+
+        /*
+        Falls die Komprimierung ausnahmsweise größer wird,
+        behalten wir die kleinere Variante.
+        */
+        if (compressedFile.size < originalSize) {
+            file = compressedFile;
+            replaceFileInput(file);
+
+            showCompressionMessage(
+                "✅ Bild wurde automatisch optimiert:<br>" +
+                "Vorher: " + formatBytes(originalSize) + " · Jetzt: " + formatBytes(file.size)
+            );
+        } else {
+            showCompressionMessage(
+                "ℹ️ Das Bild war bereits gut optimiert:<br>" +
+                "Dateigröße: " + formatBytes(originalSize)
+            );
+        }
+
+        updatePreview(file);
+        validateUploadSize();
+
+    } catch (error) {
+        showError("❌ " + error);
+        preview.style.display = "none";
+        placeholder.style.display = "block";
+        submitButton.disabled = true;
+    }
+
+    submitButton.innerText = "PDF erstellen";
 });
 
-formatSelect.addEventListener("change", function () {
+formatSelect.addEventListener("change", async function () {
     doneMessage.style.display = "none";
+    hideCompressionMessage();
 
     const pages = this.options[this.selectedIndex].dataset.pages;
     const word = pages === "1" ? "A4-Seite" : "A4-Seiten";
     pageInfo.innerText = "Dein Poster wird aus " + pages + " " + word + " bestehen.";
+
+    validateUploadSize();
 });
 
-form.addEventListener("submit", function () {
+form.addEventListener("submit", function (event) {
+    if (!validateUploadSize()) {
+        event.preventDefault();
+        return;
+    }
+
     submitted = true;
     doneMessage.style.display = "none";
     loadingOverlay.style.display = "flex";
