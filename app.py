@@ -370,15 +370,16 @@ def create_pdf():
             page_number += 1
 
     pdf.save()
-    buffer.seek(0)
+ pdf_bytes = buffer.getvalue()
+buffer.close()
 
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"poster_{fmt}_katicas_galerie.pdf",
-        mimetype="application/pdf"
-    )
-
+return send_file(
+    io.BytesIO(pdf_bytes),
+    as_attachment=True,
+    download_name=f"poster_{fmt}_katicas_galerie.pdf",
+    mimetype="application/pdf",
+    max_age=0
+)
 
 @app.route("/create-raster-kontur", methods=["POST"])
 def create_raster_kontur():
